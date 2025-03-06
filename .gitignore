@@ -1,0 +1,37 @@
+### VisualStudioCode template
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+
+# Local History for Visual Studio Code
+.history/
+
+# Built Visual Studio Code Extensions
+*.vsix
+
+### Xcode template
+## User settings
+xcuserdata/
+
+### Example user template template
+### Example user template
+
+# IntelliJ project files
+.idea
+*.iml
+out
+gen
+### Redis template
+# Ignore redis binary dump (dump.rdb) files
+
+*.rdb
+
+### Flask template
+instance/*
+!instance/.gitignore
+.webassets-cache
+.env
+
