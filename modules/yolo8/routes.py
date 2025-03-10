@@ -1,4 +1,5 @@
 from flask import Blueprint
+
 from .controller import plant_detect_controller
 
 yolo8_bp = Blueprint("yolo8", __name__)

@@ -1,5 +1,5 @@
-from .base_model import BaseYOLOModel
 from common.constant import disease_mapping
+from .base_model import BaseYOLOModel
 from ..enum import ModelWeights
 
 

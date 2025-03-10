@@ -1,5 +1,5 @@
-from common.models.base_model import BaseYOLOModel
 from common.enum import ModelWeights
+from common.models.base_model import BaseYOLOModel
 
 
 class YOLOv5Model(BaseYOLOModel):

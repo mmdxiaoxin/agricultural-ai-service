@@ -1,10 +1,12 @@
 import logging
 import os
+
+from dotenv import load_dotenv
 from flask import Flask
 from flask_cors import CORS
-from modules import modules
+
 from config import Config
-from dotenv import load_dotenv
+from modules import modules
 
 # 加载 .env 文件
 load_dotenv()

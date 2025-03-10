@@ -1,6 +1,6 @@
-from ultralytics import YOLO
 import torch
-from common.enum import ModelWeights
+from ultralytics import YOLO
+
 from common.utils.image_processing import ImageProcessor
 
 # 确定设备
