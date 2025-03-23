@@ -22,7 +22,7 @@ cors = CORS(app)
 
 # 注册所有模块的路由
 for module in modules:
-    app.register_blueprint(module)
+    app.register_blueprint(module, url_prefix="/ai")
 
 if __name__ == "__main__":
     host = os.getenv("HOST", "127.0.0.1")  # 从环境变量中获取HOST
