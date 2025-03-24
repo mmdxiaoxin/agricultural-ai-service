@@ -70,7 +70,7 @@ class DetectYOLOModel(BaseYOLOModel):
 
     def _parse_detect_results(self, results):
         """
-        解析推理结果
+        解析推理结果，返回包含 bbox 对象的结果
         :param results: YOLO 推理结果
         :return: 解析后的结果
         """
@@ -80,17 +80,30 @@ class DetectYOLOModel(BaseYOLOModel):
             names = result.names
             for box in boxes:
                 class_id = int(box.cls.cpu())
-                bbox = box.xyxy.cpu().squeeze().tolist()
-                bbox = [int(coord) for coord in bbox]  # 转换边界框坐标为整数
-                result = {
-                    "class_name": names[class_id],  # 类别名称
-                    "confidence": box.conf.cpu().squeeze().item(),  # 置信度
-                    "bbox": bbox,  # 边界框
-                    "class_id": class_id,  # 类别ID
+                bbox_list = (
+                    box.xyxy.cpu().squeeze().tolist()
+                )  # 获取 [xmin, ymin, xmax, ymax]
+                # 转换为整数
+                bbox_list = [int(coord) for coord in bbox_list]
+                x = bbox_list[0]
+                y = bbox_list[1]
+                width = bbox_list[2] - bbox_list[0]
+                height = bbox_list[3] - bbox_list[1]
+                result_item = {
+                    "type": "detect",
+                    "class_name": names[class_id],
+                    "confidence": box.conf.cpu().squeeze().item(),
+                    "bbox": {
+                        "x": x,
+                        "y": y,
+                        "width": width,
+                        "height": height,
+                    },
+                    "class_id": class_id,
                 }
-                parsed_results.append(result)
+                parsed_results.append(result_item)
 
-        return parsed_results  # 返回结果列表
+        return parsed_results
 
 
 class ClassifyYOLOModel(BaseYOLOModel):
@@ -123,6 +136,8 @@ class ClassifyYOLOModel(BaseYOLOModel):
             # 获取对应的最高置信度
             top1_confidence = result.probs.top1conf.item()
             result_info = {
+                "type": "classify",
+                "class_id": top1_index,
                 "class_name": top1_label,
                 "confidence": top1_confidence,  # 置信度
             }
