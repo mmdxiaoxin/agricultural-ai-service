@@ -28,11 +28,11 @@ class AIService:
             if not model:
                 logger.error(f"未找到检测模型版本: {version}")
                 return None
-            result = model.detect(image_data)
-            if not isinstance(result, dict):
+            results = model.detect(image_data)
+            if not results or not isinstance(results, list):
                 logger.error("检测结果格式错误")
                 return None
-            return result
+            return {"results": results}
 
         except Exception as e:
             logger.error(f"检测推理失败: {str(e)}")
@@ -54,11 +54,11 @@ class AIService:
             if not model:
                 logger.error(f"未找到分类模型版本: {version}")
                 return None
-            result = model.classify(image_data)
-            if not isinstance(result, dict):
+            results = model.classify(image_data)
+            if not results or not isinstance(results, list):
                 logger.error("分类结果格式错误")
                 return None
-            return result
+            return {"results": results}
 
         except Exception as e:
             logger.error(f"分类推理失败: {str(e)}")
