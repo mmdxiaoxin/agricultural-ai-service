@@ -69,3 +69,6 @@ __pycache__
 
 # pycharm
 .idea
+
+# logs
+logs/*
