@@ -51,7 +51,7 @@ class BaseYOLOModel:
             if not self.model_path.exists():
                 raise FileNotFoundError(f"模型文件不存在: {model_path}")
             self.params = params or DEFAULT_YOLO_PARAMS.copy()
-            self.model = YOLO(str(self.model_path), self.params)
+            self.model = YOLO(str(self.model_path))
             logger.info(f"成功加载模型: {model_path}")
 
         except Exception as e:
@@ -59,7 +59,7 @@ class BaseYOLOModel:
             raise ModelError(f"模型加载失败: {str(e)}")
 
     def predict(
-        self, image_data: Union[bytes, List[bytes]], batch_size: int = 1
+        self, image_data: Union[bytes, List[bytes]], batch_size: int = 1, **kwargs
     ) -> Any:
         """
         进行推理，支持单张图片和批量图片
@@ -67,6 +67,7 @@ class BaseYOLOModel:
         Args:
             image_data: 输入图片（二进制）或图片列表
             batch_size: 批处理大小
+            **kwargs: 额外的推理参数
 
         Returns:
             YOLO 推理结果
@@ -75,19 +76,23 @@ class BaseYOLOModel:
             ModelError: 当推理过程出错时抛出
         """
         try:
+            # 合并默认参数和传入的参数
+            predict_params = self.params.copy()
+            predict_params.update(kwargs)
+
             if isinstance(image_data, list):
                 # 批量处理
                 results = []
                 for i in range(0, len(image_data), batch_size):
                     batch = image_data[i : i + batch_size]
                     processed_images = [ImageProcessor.preprocess(img) for img in batch]
-                    batch_results = self.model(processed_images)
+                    batch_results = self.model(processed_images, **predict_params)
                     results.extend(batch_results)
                 return results
             else:
                 # 单张图片处理
                 image = ImageProcessor.preprocess(image_data)
-                return self.model(image)
+                return self.model(image, **predict_params)
 
         except Exception as e:
             logger.error(f"推理过程出错: {str(e)}")
@@ -110,7 +115,6 @@ class BaseYOLOModel:
                     logger.warning(f"未知参数: {key}")
 
             self.params.update(kwargs)
-            self.model = YOLO(str(self.model_path), self.params)
             logger.info(f"成功更新模型参数: {kwargs}")
 
         except Exception as e:
@@ -152,7 +156,7 @@ class BaseYOLOModel:
                 raise FileNotFoundError(f"模型文件不存在: {model_path}")
 
             self.model_path = model_path
-            self.model = YOLO(str(model_path), self.params)
+            self.model = YOLO(str(model_path))
             logger.info(f"成功加载新模型: {model_path}")
 
         except Exception as e:
