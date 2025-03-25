@@ -1,24 +1,20 @@
 import jwt
 import time
-from typing import Dict, Any, Optional, Callable
+from typing import Dict, Any, Optional, Callable, Union
 from functools import wraps
 from flask import request, current_app
 from common.utils.response import ApiResponse
-
-# JWT配置
-JWT_SECRET = "your-secret-key"  # 建议从环境变量获取
-JWT_ALGORITHM = "HS256"
-JWT_EXPIRE_MINUTES = 60 * 24  # 24小时
+from config import Config
 
 
 class JWTUtils:
     @staticmethod
-    def generate_token(user_id: str, username: str, roles: list) -> str:
+    def generate_token(user_id: Union[str, int], username: str, roles: list) -> str:
         """
         生成JWT token
 
         Args:
-            user_id: 用户ID
+            user_id: 用户ID（字符串或整数）
             username: 用户名
             roles: 用户角色列表
 
@@ -26,12 +22,12 @@ class JWTUtils:
             str: JWT token
         """
         payload = {
-            "userId": user_id,
+            "userId": str(user_id),
             "username": username,
             "roles": roles,
-            "exp": int(time.time()) + JWT_EXPIRE_MINUTES * 60,
+            "exp": int(time.time()) + Config.JWT_EXPIRE_MINUTES * 60,
         }
-        return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+        return jwt.encode(payload, Config.JWT_SECRET, algorithm=Config.JWT_ALGORITHM)
 
     @staticmethod
     def verify_token(token: str) -> Optional[Dict[str, Any]]:
@@ -45,7 +41,9 @@ class JWTUtils:
             Optional[Dict[str, Any]]: 解码后的payload，验证失败返回None
         """
         try:
-            payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            payload = jwt.decode(
+                token, Config.JWT_SECRET, algorithms=[Config.JWT_ALGORITHM]
+            )
             return payload
         except jwt.ExpiredSignatureError:
             return None
