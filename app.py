@@ -5,12 +5,13 @@ from logging.handlers import RotatingFileHandler
 from functools import wraps
 
 from dotenv import load_dotenv
-from flask import Flask, request, jsonify
+from flask import Flask, request
 from flask_cors import CORS
 from werkzeug.exceptions import RequestTimeout, RequestEntityTooLarge
 
 from config import Config
 from modules import modules
+from common.utils.response import ApiResponse, ResponseCode
 
 # 加载 .env 文件
 load_dotenv()
@@ -70,36 +71,37 @@ def timeout_handler(timeout=30):
 @app.before_request
 def log_request_info():
     """记录请求信息"""
-    logger.info("Headers: %s", request.headers)
-    logger.info("Body: %s", request.get_data())
+    logger.info("Request URL: %s", request.url)
+    logger.info("Request Method: %s", request.method)
+    logger.info("Request Headers: %s", dict(request.headers))
 
 
 @app.after_request
 def log_response_info(response):
     """记录响应信息"""
-    logger.info("Response: %s", response.get_data())
+    logger.info("Response Status: %s", response.status)
     return response
 
 
 @app.errorhandler(RequestTimeout)
 def handle_timeout(error):
     """处理请求超时错误"""
-    logger.error(f"请求超时: {str(error)}")
-    return jsonify({"error": "请求处理超时，请稍后重试"}), 408
+    logger.error("Request timeout: %s", str(error))
+    return ApiResponse.timeout("请求处理超时，请稍后重试")
 
 
 @app.errorhandler(RequestEntityTooLarge)
 def handle_file_too_large(error):
     """处理文件过大错误"""
-    logger.error(f"文件过大: {str(error)}")
-    return jsonify({"error": "文件大小超过限制（最大16MB）"}), 413
+    logger.error("File too large: %s", str(error))
+    return ApiResponse.file_too_large("文件大小超过限制（最大16MB）")
 
 
 @app.errorhandler(Exception)
 def handle_generic_error(error):
     """处理通用错误"""
-    logger.error(f"未处理的错误: {str(error)}")
-    return jsonify({"error": "服务器内部错误"}), 500
+    logger.error("Unhandled error: %s", str(error))
+    return ApiResponse.internal_error("服务器内部错误")
 
 
 # 注册所有模块的路由
