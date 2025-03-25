@@ -36,6 +36,11 @@ class Config:
     ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
     MAX_FILE_SIZE = 16 * 1024 * 1024  # 16MB
 
+    # 模型上传配置
+    MODEL_UPLOAD_MAX_SIZE = 500 * 1024 * 1024  # 500MB
+    MODEL_ALLOWED_EXTENSIONS = {"pt", "pth", "onnx"}
+    MODEL_TYPES = {"detect", "classify"}
+
     # 模型配置
     MODEL_CONFIGS: Dict[str, Dict[str, Any]] = {
         "yolo5": {
@@ -117,3 +122,28 @@ class Config:
     def validate_file_size(cls, content_length: int) -> bool:
         """验证文件大小"""
         return content_length <= cls.MAX_FILE_SIZE
+
+    @classmethod
+    def validate_model_extension(cls, filename: str) -> bool:
+        """验证模型文件扩展名"""
+        return (
+            "." in filename
+            and filename.rsplit(".", 1)[1].lower() in cls.MODEL_ALLOWED_EXTENSIONS
+        )
+
+    @classmethod
+    def validate_model_size(cls, content_length: int) -> bool:
+        """验证模型文件大小"""
+        return content_length <= cls.MODEL_UPLOAD_MAX_SIZE
+
+    @classmethod
+    def validate_model_type(cls, model_type: str) -> bool:
+        """验证模型类型"""
+        return model_type in cls.MODEL_TYPES
+
+    @classmethod
+    def get_model_path(cls, version: str, model_type: str) -> Path:
+        """获取模型文件保存路径"""
+        model_dir = cls.WEIGHT_DIR / version
+        model_dir.mkdir(parents=True, exist_ok=True)
+        return model_dir / f"{model_type}-best.pt"
