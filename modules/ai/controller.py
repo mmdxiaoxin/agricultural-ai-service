@@ -2,7 +2,7 @@ import logging
 from flask import request
 from werkzeug.exceptions import RequestEntityTooLarge
 
-from common.services.ai_service import AIService
+from services.ai_service import AIService
 from common.utils.response import ApiResponse, ResponseCode
 
 logger = logging.getLogger(__name__)
