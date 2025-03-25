@@ -35,3 +35,37 @@ instance/*
 .webassets-cache
 .env
 
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+*.pyz
+*.pywz
+
+# PyTorch
+*.pt
+*.pth
+*.pth.tar
+*.pth.tar.gz
+*.pth.tar.bz2
+*.pth.tar.xz
+*.pth.tar.lzma
+*.pth.tar.lz4
+*.pth.tar.lz4.gz
+*.pth.tar.lz4.bz2
+*.pth.tar.lz4.xz
+*.pth.tar.lz4.lzma
+*.pth.tar.lz4.lz4
+*.pth.tar.lz4.lz4.gz
+*.pth.tar.lz4.lz4.bz2
+*.pth.tar.lz4.lz4.xz
+*.pth.tar.lz4.lz4.lzma
+*.pth.tar.lz4.lz4.lz4
+
+# vs code
+.vscode
+
+# pycharm
+.idea
