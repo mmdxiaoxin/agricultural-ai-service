@@ -9,7 +9,7 @@ from werkzeug.exceptions import RequestTimeout, RequestEntityTooLarge
 
 from config import Config
 from modules import modules
-from common.utils.response import ApiResponse, ResponseCode
+from common.utils.response import ApiResponse
 
 # 配置日志
 logger = logging.getLogger(__name__)

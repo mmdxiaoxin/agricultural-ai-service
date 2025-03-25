@@ -5,7 +5,7 @@ from ultralytics import YOLO
 from pathlib import Path
 
 from common.utils.image_processing import ImageProcessor
-from common.exceptions import ModelError
+from common.utils.exceptions import ModelError
 
 # 配置日志
 logger = logging.getLogger(__name__)
