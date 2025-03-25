@@ -1,10 +1,8 @@
 import logging
-import os
-import time
 from logging.handlers import RotatingFileHandler
 from functools import wraps
+import time
 
-from dotenv import load_dotenv
 from flask import Flask, request
 from flask_cors import CORS
 from werkzeug.exceptions import RequestTimeout, RequestEntityTooLarge
@@ -13,34 +11,22 @@ from config import Config
 from modules import modules
 from common.utils.response import ApiResponse, ResponseCode
 
-# 加载 .env 文件
-load_dotenv()
-
-# 创建日志目录
-log_dir = "logs"
-if not os.path.exists(log_dir):
-    os.makedirs(log_dir)
-
 # 配置日志
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(Config.LOG_LEVEL)
 
 # 控制台处理器
 console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)
-console_formatter = logging.Formatter(
-    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+console_handler.setLevel(Config.LOG_LEVEL)
+console_formatter = logging.Formatter(Config.LOG_FORMAT)
 console_handler.setFormatter(console_formatter)
 
 # 文件处理器
 file_handler = RotatingFileHandler(
-    os.path.join(log_dir, "app.log"), maxBytes=10 * 1024 * 1024, backupCount=5  # 10MB
+    Config.LOG_FILE, maxBytes=Config.LOG_MAX_BYTES, backupCount=Config.LOG_BACKUP_COUNT
 )
-file_handler.setLevel(logging.INFO)
-file_formatter = logging.Formatter(
-    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+file_handler.setLevel(Config.LOG_LEVEL)
+file_formatter = logging.Formatter(Config.LOG_FORMAT)
 file_handler.setFormatter(file_formatter)
 
 # 添加处理器
@@ -48,12 +34,12 @@ logger.addHandler(console_handler)
 logger.addHandler(file_handler)
 
 app = Flask(__name__)
-app.config.from_object(Config)
+Config.init_app(app)
 cors = CORS(app)
 
 
 # 请求超时装饰器
-def timeout_handler(timeout=30):
+def timeout_handler(timeout=Config.REQUEST_TIMEOUT):
     def decorator(f):
         @wraps(f)
         def wrapped(*args, **kwargs):
@@ -94,7 +80,9 @@ def handle_timeout(error):
 def handle_file_too_large(error):
     """处理文件过大错误"""
     logger.error("File too large: %s", str(error))
-    return ApiResponse.file_too_large("文件大小超过限制（最大16MB）")
+    return ApiResponse.file_too_large(
+        f"文件大小超过限制（最大{Config.MAX_FILE_SIZE // (1024*1024)}MB）"
+    )
 
 
 @app.errorhandler(Exception)
@@ -109,11 +97,9 @@ for module in modules:
     app.register_blueprint(module, url_prefix="/ai")
 
 if __name__ == "__main__":
-    host = os.getenv("HOST", "127.0.0.1")
-    port = int(os.getenv("PORT", 5000))
     try:
-        logger.info(f"Starting server on {host}:{port}")
-        app.run(debug=True, host=host, port=port, threaded=True)
+        logger.info(f"Starting server on {Config.HOST}:{Config.PORT}")
+        app.run(debug=Config.DEBUG, host=Config.HOST, port=Config.PORT, threaded=True)
     except Exception as e:
         logger.error(f"Server error: {str(e)}")
     finally:

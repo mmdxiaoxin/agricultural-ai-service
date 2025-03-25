@@ -4,11 +4,9 @@ from werkzeug.exceptions import RequestEntityTooLarge
 
 from services.ai_service import AIService
 from common.utils.response import ApiResponse, ResponseCode
+from config import Config
 
 logger = logging.getLogger(__name__)
-
-# 设置最大请求大小为16MB
-MAX_CONTENT_LENGTH = 16 * 1024 * 1024
 
 # 创建AI服务实例
 ai_service = AIService()
@@ -23,8 +21,12 @@ def detect_controller(version: str):
     """
     try:
         # 检查请求大小
-        if request.content_length and request.content_length > MAX_CONTENT_LENGTH:
-            return ApiResponse.file_too_large("文件大小超过限制（最大16MB）")
+        if request.content_length and not Config.validate_file_size(
+            request.content_length
+        ):
+            return ApiResponse.file_too_large(
+                f"文件大小超过限制（最大{Config.MAX_FILE_SIZE // (1024*1024)}MB）"
+            )
 
         if "image" not in request.files:
             return ApiResponse.bad_request("未提供图片文件")
@@ -35,7 +37,7 @@ def detect_controller(version: str):
             return ApiResponse.bad_request("未选择文件")
 
         # 检查文件类型
-        if not image_file.filename.lower().endswith((".png", ".jpg", ".jpeg")):
+        if not Config.validate_file_extension(image_file.filename):
             return ApiResponse.bad_request("不支持的文件类型，仅支持PNG和JPG格式")
 
         # 调用服务层进行推理
@@ -50,7 +52,9 @@ def detect_controller(version: str):
 
     except RequestEntityTooLarge:
         logger.error("请求文件过大")
-        return ApiResponse.file_too_large("文件大小超过限制（最大16MB）")
+        return ApiResponse.file_too_large(
+            f"文件大小超过限制（最大{Config.MAX_FILE_SIZE // (1024*1024)}MB）"
+        )
     except Exception as e:
         logger.error(f"处理请求时发生错误: {str(e)}")
         return ApiResponse.internal_error(f"服务器内部错误: {str(e)}")
@@ -65,8 +69,12 @@ def classify_controller(version: str):
     """
     try:
         # 检查请求大小
-        if request.content_length and request.content_length > MAX_CONTENT_LENGTH:
-            return ApiResponse.file_too_large("文件大小超过限制（最大16MB）")
+        if request.content_length and not Config.validate_file_size(
+            request.content_length
+        ):
+            return ApiResponse.file_too_large(
+                f"文件大小超过限制（最大{Config.MAX_FILE_SIZE // (1024*1024)}MB）"
+            )
 
         if "image" not in request.files:
             return ApiResponse.bad_request("未提供图片文件")
@@ -77,7 +85,7 @@ def classify_controller(version: str):
             return ApiResponse.bad_request("未选择文件")
 
         # 检查文件类型
-        if not image_file.filename.lower().endswith((".png", ".jpg", ".jpeg")):
+        if not Config.validate_file_extension(image_file.filename):
             return ApiResponse.bad_request("不支持的文件类型，仅支持PNG和JPG格式")
 
         # 调用服务层进行推理
@@ -92,7 +100,9 @@ def classify_controller(version: str):
 
     except RequestEntityTooLarge:
         logger.error("请求文件过大")
-        return ApiResponse.file_too_large("文件大小超过限制（最大16MB）")
+        return ApiResponse.file_too_large(
+            f"文件大小超过限制（最大{Config.MAX_FILE_SIZE // (1024*1024)}MB）"
+        )
     except Exception as e:
         logger.error(f"处理请求时发生错误: {str(e)}")
         return ApiResponse.internal_error(f"服务器内部错误: {str(e)}")
@@ -101,7 +111,7 @@ def classify_controller(version: str):
 def get_versions_controller():
     """获取所有可用的模型版本"""
     try:
-        versions = ai_service.get_available_versions()
+        versions = Config.get_all_model_versions()
         return ApiResponse.success(data={"versions": versions})
     except Exception as e:
         logger.error(f"获取模型版本失败: {str(e)}")
