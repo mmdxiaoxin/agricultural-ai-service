@@ -79,13 +79,16 @@ def require_auth(f: Callable) -> Callable:
         payload = JWTUtils.verify_token(token)
         if not payload:
             return ApiResponse.unauthorized("认证已过期或无效")
-
         # 将用户信息添加到请求上下文
-        current_app.user_info = {
-            "userId": payload["userId"],
-            "username": payload["username"],
-            "roles": payload["roles"],
-        }
+        setattr(
+            current_app,
+            "user_info",
+            {
+                "userId": payload["userId"],
+                "username": payload["username"],
+                "roles": payload["roles"],
+            },
+        )
 
         return f(*args, **kwargs)
 
@@ -109,9 +112,8 @@ def require_roles(*roles: str) -> Callable:
             # 检查用户信息是否存在
             if not hasattr(current_app, "user_info"):
                 return ApiResponse.unauthorized("未认证")
-
             # 检查用户角色
-            user_roles = current_app.user_info.get("roles", [])
+            user_roles = getattr(current_app, "user_info", {}).get("roles", [])
             if not any(role in user_roles for role in roles):
                 return ApiResponse.forbidden("权限不足")
 
@@ -151,16 +153,19 @@ def apply_auth_decorators(*roles: str) -> Callable:
             payload = JWTUtils.verify_token(token)
             if not payload:
                 return ApiResponse.unauthorized("认证已过期或无效")
-
             # 将用户信息添加到请求上下文
-            current_app.user_info = {
-                "userId": payload["userId"],
-                "username": payload["username"],
-                "roles": payload["roles"],
-            }
+            setattr(
+                current_app,
+                "user_info",
+                {
+                    "userId": payload["userId"],
+                    "username": payload["username"],
+                    "roles": payload["roles"],
+                },
+            )
 
             # 检查用户角色
-            user_roles = current_app.user_info.get("roles", [])
+            user_roles = getattr(current_app, "user_info", {}).get("roles", [])
             if not any(role in user_roles for role in roles):
                 return ApiResponse.forbidden("权限不足")
 
