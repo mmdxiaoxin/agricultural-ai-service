@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 from common.models.model_manager import ModelManager
 
@@ -12,7 +12,7 @@ class AIService:
     def __init__(self):
         self.model_manager = ModelManager()
 
-    def detect(self, version: str, image_data: bytes) -> Optional[Dict[str, Any]]:
+    def detect(self, version: str, image_data: bytes) -> Optional[List[Dict[str, Any]]]:
         """
         使用指定版本的检测模型进行推理
 
@@ -21,7 +21,7 @@ class AIService:
             image_data: 图片数据
 
         Returns:
-            推理结果
+            推理结果列表
         """
         try:
             model = self.model_manager.get_detect_model(version)
@@ -32,13 +32,15 @@ class AIService:
             if not results or not isinstance(results, list):
                 logger.error("检测结果格式错误")
                 return None
-            return {"results": results}
+            return results
 
         except Exception as e:
             logger.error(f"检测推理失败: {str(e)}")
             return None
 
-    def classify(self, version: str, image_data: bytes) -> Optional[Dict[str, Any]]:
+    def classify(
+        self, version: str, image_data: bytes
+    ) -> Optional[List[Dict[str, Any]]]:
         """
         使用指定版本的分类模型进行推理
 
@@ -47,7 +49,7 @@ class AIService:
             image_data: 图片数据
 
         Returns:
-            推理结果
+            推理结果列表
         """
         try:
             model = self.model_manager.get_classify_model(version)
@@ -58,7 +60,7 @@ class AIService:
             if not results or not isinstance(results, list):
                 logger.error("分类结果格式错误")
                 return None
-            return {"results": results}
+            return results
 
         except Exception as e:
             logger.error(f"分类推理失败: {str(e)}")
