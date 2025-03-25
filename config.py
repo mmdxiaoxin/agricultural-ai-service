@@ -21,6 +21,11 @@ class Config:
     PORT = int(os.getenv("PORT", "5000"))
     DEBUG = os.getenv("FLASK_DEBUG", "True").lower() == "true"
 
+    # JWT配置
+    JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key")
+    JWT_ALGORITHM = "HS256"
+    JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "1440"))  # 24小时
+
     # 请求配置
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB
     REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", "30"))  # 30秒
