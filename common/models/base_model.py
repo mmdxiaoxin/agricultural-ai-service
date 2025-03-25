@@ -52,7 +52,8 @@ class BaseYOLOModel:
                 raise FileNotFoundError(f"模型文件不存在: {model_path}")
 
             self.params = params or DEFAULT_YOLO_PARAMS.copy()
-            self.model = YOLO(str(self.model_path), self.params)
+            self.model = YOLO(str(self.model_path))
+            self.model.to(**self.params)
             logger.info(f"成功加载模型: {model_path}")
 
         except Exception as e:
@@ -111,7 +112,7 @@ class BaseYOLOModel:
                     logger.warning(f"未知参数: {key}")
 
             self.params.update(kwargs)
-            self.model = YOLO(str(self.model_path), self.params)
+            self.model.to(**self.params)
             logger.info(f"成功更新模型参数: {kwargs}")
 
         except Exception as e:
@@ -153,7 +154,8 @@ class BaseYOLOModel:
                 raise FileNotFoundError(f"模型文件不存在: {model_path}")
 
             self.model_path = model_path
-            self.model = YOLO(str(model_path), self.params)
+            self.model = YOLO(str(model_path))
+            self.model.to(**self.params)
             logger.info(f"成功加载新模型: {model_path}")
 
         except Exception as e:
@@ -180,7 +182,7 @@ class DetectYOLOModel(BaseYOLOModel):
 
     def __init__(
         self,
-        model_path: Optional[Union[str, Path]] = None,
+        model_path: Union[str, Path],
         params: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(model_path, params)
@@ -243,7 +245,7 @@ class ClassifyYOLOModel(BaseYOLOModel):
 
     def __init__(
         self,
-        model_path: Optional[Union[str, Path]] = None,
+        model_path: Union[str, Path],
         params: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(model_path, params)
