@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Dict, Optional, Union
 from pathlib import Path
 
@@ -25,22 +26,51 @@ class ModelManager:
             self._load_models()
 
     def _load_models(self):
-        """加载所有模型"""
+        """自动扫描weight目录加载所有模型"""
         try:
-            # 检测模型
-            self._detect_models = {
-                "yolo5": DetectYOLOModel("models/yolo5.pt"),
-                "yolo8": DetectYOLOModel("models/yolo8.pt"),
-            }
+            weight_dir = Path("weight")
+            if not weight_dir.exists():
+                logger.error("weight目录不存在")
+                return
 
-            # 分类模型
-            self._classify_models = {
-                "yolo11": ClassifyYOLOModel("models/yolo11.pt"),
-            }
+            # 遍历weight目录下的所有子目录
+            for model_dir in weight_dir.iterdir():
+                if not model_dir.is_dir():
+                    continue
 
-            logger.info("所有模型加载完成")
+                model_name = model_dir.name
+                # 检查是否是检测模型
+                detect_model = model_dir / "detect-best.pt"
+                if detect_model.exists():
+                    try:
+                        self._detect_models[model_name] = DetectYOLOModel(
+                            str(detect_model)
+                        )
+                        logger.info(f"成功加载检测模型: {model_name}")
+                    except Exception as e:
+                        logger.error(f"加载检测模型 {model_name} 失败: {str(e)}")
+
+                # 检查是否是分类模型
+                classify_model = model_dir / "classify-best.pt"
+                if classify_model.exists():
+                    try:
+                        self._classify_models[model_name] = ClassifyYOLOModel(
+                            str(classify_model)
+                        )
+                        logger.info(f"成功加载分类模型: {model_name}")
+                    except Exception as e:
+                        logger.error(f"加载分类模型 {model_name} 失败: {str(e)}")
+
+            if not self._detect_models and not self._classify_models:
+                logger.warning("未找到任何模型文件")
+            else:
+                logger.info(
+                    f"模型加载完成，检测模型: {list(self._detect_models.keys())}, "
+                    f"分类模型: {list(self._classify_models.keys())}"
+                )
+
         except Exception as e:
-            logger.error(f"模型加载失败: {str(e)}")
+            logger.error(f"模型加载过程发生错误: {str(e)}")
             raise
 
     def get_detect_model(self, version: str) -> Optional[DetectYOLOModel]:
@@ -63,3 +93,9 @@ class ModelManager:
             "detect": list(self._detect_models.keys()),
             "classify": list(self._classify_models.keys()),
         }
+
+    def reload_models(self):
+        """重新加载所有模型"""
+        self._detect_models.clear()
+        self._classify_models.clear()
+        self._load_models()

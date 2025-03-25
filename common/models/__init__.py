@@ -1,6 +1,4 @@
 from .base_model import BaseYOLOModel
-from .yolo_v11 import YOLOv11Classifier
-from .yolo_v5 import YOLOv5Detector
-from .yolo_v8 import YOLOv8Detector
+from .model_manager import ModelManager
 
-__all__ = ["BaseYOLOModel", "YOLOv5Detector", "YOLOv8Detector", "YOLOv11Classifier"]
+__all__ = ["BaseYOLOModel", "ModelManager"]
