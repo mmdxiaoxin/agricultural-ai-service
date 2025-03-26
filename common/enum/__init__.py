@@ -1,1 +1,0 @@
-from .weight import ModelWeights
