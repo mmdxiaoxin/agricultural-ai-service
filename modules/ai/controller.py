@@ -3,15 +3,19 @@ import shutil
 from flask import request
 from werkzeug.exceptions import RequestEntityTooLarge
 from pathlib import Path
+import hashlib
 
 from services.ai_service import AIService
 from common.utils.response import ApiResponse, ResponseCode
 from config import Config
+from common.models.database import Database
 
 logger = logging.getLogger(__name__)
 
 # 创建AI服务实例
 ai_service = AIService()
+# 创建数据库实例
+db = Database()
 
 
 def detect_controller(version: str):
@@ -113,7 +117,7 @@ def classify_controller(version: str):
 def get_versions_controller():
     """获取所有可用的模型版本"""
     try:
-        versions = Config.get_all_model_versions()
+        versions = db.get_all_models()
         return ApiResponse.success(data={"versions": versions})
     except Exception as e:
         logger.error(f"获取模型版本失败: {str(e)}")
@@ -178,23 +182,41 @@ def upload_model_controller():
             logger.error(f"保存模型文件失败: {str(e)}")
             return ApiResponse.internal_error("保存模型文件失败")
 
-        # 更新模型配置
-        Config.MODEL_CONFIGS[version] = {
-            "type": model_type,
-            "path": save_path,
+        # 计算文件哈希
+        file_size = save_path.stat().st_size
+        with open(save_path, "rb") as f:
+            file_hash = hashlib.sha256(f.read()).hexdigest()
+
+        # 设置模型参数
+        parameters = {
             "conf": 0.25,
             "iou": 0.5 if model_type == "detect" else None,
         }
 
+        # 更新数据库中的模型配置
+        if not db.add_model(
+            version=version,
+            model_type=model_type,
+            file_path=str(save_path),
+            file_size=file_size,
+            file_hash=file_hash,
+            parameters=parameters,
+        ):
+            # 如果数据库更新失败，删除已保存的文件
+            if save_path.exists():
+                save_path.unlink()
+            return ApiResponse.internal_error("保存模型配置失败")
+
         # 重新加载模型
         try:
-            ai_service.model_manager.reload_models()
+            ai_service.model_manager._load_models()
             logger.info(f"模型已重新加载: {version} ({model_type})")
         except Exception as e:
             logger.error(f"重新加载模型失败: {str(e)}")
-            # 如果重新加载失败，删除已保存的文件
+            # 如果重新加载失败，删除已保存的文件和数据库记录
             if save_path.exists():
                 save_path.unlink()
+            db.delete_model(version, model_type)
             return ApiResponse.internal_error("模型加载失败")
 
         return ApiResponse.success(
