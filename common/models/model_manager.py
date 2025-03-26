@@ -1,65 +1,66 @@
 import logging
-import os
-from typing import Dict, Optional, Union
 from pathlib import Path
+from typing import Dict, Optional, Any
+import hashlib
+from datetime import datetime
 
 from common.models.base_model import DetectYOLOModel, ClassifyYOLOModel
+from common.models.database import Database
+from common.utils.exceptions import ModelError
 
 logger = logging.getLogger(__name__)
 
 
 class ModelManager:
-    """模型管理器，用于统一管理不同版本的模型"""
-
-    _instance = None
-    _detect_models: Dict[str, DetectYOLOModel] = {}
-    _classify_models: Dict[str, ClassifyYOLOModel] = {}
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(ModelManager, cls).__new__(cls)
-        return cls._instance
+    """模型管理器，负责模型的加载和管理"""
 
     def __init__(self):
-        if not hasattr(self, "initialized"):
-            self.initialized = True
-            self._load_models()
+        self._detect_models: Dict[str, DetectYOLOModel] = {}
+        self._classify_models: Dict[str, ClassifyYOLOModel] = {}
+        self._db = Database()
+        self._load_models()
+
+    def _calculate_file_hash(self, file_path: Path) -> str:
+        """计算文件的MD5哈希值"""
+        hash_md5 = hashlib.md5()
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_md5.update(chunk)
+        return hash_md5.hexdigest()
 
     def _load_models(self):
-        """自动扫描weight目录加载所有模型"""
+        """从数据库加载所有模型"""
         try:
-            weight_dir = Path("weight")
-            if not weight_dir.exists():
-                logger.error("weight目录不存在")
-                return
+            # 获取所有模型元数据
+            models = self._db.get_all_models()
 
-            # 遍历weight目录下的所有子目录
-            for model_dir in weight_dir.iterdir():
-                if not model_dir.is_dir():
-                    continue
-
-                model_name = model_dir.name
-                # 检查是否是检测模型
-                detect_model = model_dir / "detect-best.pt"
-                if detect_model.exists():
-                    try:
-                        self._detect_models[model_name] = DetectYOLOModel(
-                            str(detect_model)
+            # 加载检测模型
+            for version in models["detect"]:
+                try:
+                    model_data = self._db.get_model(version, "detect")
+                    if model_data and Path(model_data["file_path"]).exists():
+                        self._detect_models[version] = DetectYOLOModel(
+                            model_data["file_path"], model_data.get("parameters")
                         )
-                        logger.info(f"成功加载检测模型: {model_name}")
-                    except Exception as e:
-                        logger.error(f"加载检测模型 {model_name} 失败: {str(e)}")
+                        logger.info(f"成功加载检测模型: {version}")
+                    else:
+                        logger.warning(f"检测模型文件不存在: {version}")
+                except Exception as e:
+                    logger.error(f"加载检测模型 {version} 失败: {str(e)}")
 
-                # 检查是否是分类模型
-                classify_model = model_dir / "classify-best.pt"
-                if classify_model.exists():
-                    try:
-                        self._classify_models[model_name] = ClassifyYOLOModel(
-                            str(classify_model)
+            # 加载分类模型
+            for version in models["classify"]:
+                try:
+                    model_data = self._db.get_model(version, "classify")
+                    if model_data and Path(model_data["file_path"]).exists():
+                        self._classify_models[version] = ClassifyYOLOModel(
+                            model_data["file_path"], model_data.get("parameters")
                         )
-                        logger.info(f"成功加载分类模型: {model_name}")
-                    except Exception as e:
-                        logger.error(f"加载分类模型 {model_name} 失败: {str(e)}")
+                        logger.info(f"成功加载分类模型: {version}")
+                    else:
+                        logger.warning(f"分类模型文件不存在: {version}")
+                except Exception as e:
+                    logger.error(f"加载分类模型 {version} 失败: {str(e)}")
 
             if not self._detect_models and not self._classify_models:
                 logger.warning("未找到任何模型文件")
@@ -73,29 +74,64 @@ class ModelManager:
             logger.error(f"模型加载过程发生错误: {str(e)}")
             raise
 
+    def add_model(
+        self,
+        version: str,
+        model_type: str,
+        file_path: Path,
+        parameters: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """添加新模型"""
+        try:
+            if not file_path.exists():
+                raise FileNotFoundError(f"模型文件不存在: {file_path}")
+
+            # 计算文件哈希
+            file_hash = self._calculate_file_hash(file_path)
+            file_size = file_path.stat().st_size
+
+            # 添加到数据库
+            if self._db.add_model(
+                version=version,
+                model_type=model_type,
+                file_path=str(file_path),
+                file_size=file_size,
+                file_hash=file_hash,
+                parameters=parameters,
+            ):
+                # 重新加载模型
+                self._load_models()
+                return True
+            return False
+
+        except Exception as e:
+            logger.error(f"添加模型失败: {str(e)}")
+            return False
+
     def get_detect_model(self, version: str) -> Optional[DetectYOLOModel]:
         """获取指定版本的检测模型"""
-        if version not in self._detect_models:
-            logger.error(f"未找到检测模型版本: {version}")
-            return None
-        return self._detect_models[version]
+        return self._detect_models.get(version)
 
     def get_classify_model(self, version: str) -> Optional[ClassifyYOLOModel]:
         """获取指定版本的分类模型"""
-        if version not in self._classify_models:
-            logger.error(f"未找到分类模型版本: {version}")
-            return None
-        return self._classify_models[version]
+        return self._classify_models.get(version)
 
     def get_available_versions(self) -> Dict[str, list]:
         """获取所有可用的模型版本"""
-        return {
-            "detect": list(self._detect_models.keys()),
-            "classify": list(self._classify_models.keys()),
-        }
+        return self._db.get_all_models()
 
-    def reload_models(self):
-        """重新加载所有模型"""
-        self._detect_models.clear()
-        self._classify_models.clear()
-        self._load_models()
+    def delete_model(self, version: str, model_type: str) -> bool:
+        """删除指定版本的模型"""
+        try:
+            # 从数据库中删除元数据
+            if self._db.delete_model(version, model_type):
+                # 从内存中删除模型
+                if model_type == "detect":
+                    self._detect_models.pop(version, None)
+                elif model_type == "classify":
+                    self._classify_models.pop(version, None)
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"删除模型失败: {str(e)}")
+            return False

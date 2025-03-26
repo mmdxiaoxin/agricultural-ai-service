@@ -15,6 +15,7 @@ class Config:
     LOG_DIR = BASE_DIR / "logs"
     UPLOAD_DIR = BASE_DIR / "uploads"
     WEIGHT_DIR = BASE_DIR / "weight"
+    DATA_DIR = BASE_DIR / "data"  # 数据目录
 
     # 服务器配置
     HOST = os.getenv("HOST", "127.0.0.1")
@@ -41,31 +42,10 @@ class Config:
     ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
     MAX_FILE_SIZE = 16 * 1024 * 1024  # 16MB
 
-    # 模型上传配置
-    MODEL_UPLOAD_MAX_SIZE = 500 * 1024 * 1024  # 500MB
-    MODEL_ALLOWED_EXTENSIONS = {"pt", "pth", "onnx"}
-    MODEL_TYPES = {"detect", "classify"}
-
     # 模型配置
-    MODEL_CONFIGS: Dict[str, Dict[str, Any]] = {
-        "yolo5": {
-            "type": "detect",
-            "path": WEIGHT_DIR / "yolo5" / "detect-best.pt",
-            "conf": 0.25,
-            "iou": 0.5,
-        },
-        "yolo8": {
-            "type": "detect",
-            "path": WEIGHT_DIR / "yolo8" / "detect-best.pt",
-            "conf": 0.25,
-            "iou": 0.5,
-        },
-        "yolo11": {
-            "type": "classify",
-            "path": WEIGHT_DIR / "yolo11" / "classify-best.pt",
-            "conf": 0.25,
-        },
-    }
+    MODEL_TYPES = {"detect", "classify"}
+    MODEL_ALLOWED_EXTENSIONS = {"pt", "pth", "onnx"}
+    MODEL_UPLOAD_MAX_SIZE = 500 * 1024 * 1024  # 500MB
 
     @classmethod
     def init_app(cls, app):
@@ -86,47 +66,16 @@ class Config:
     @classmethod
     def _create_directories(cls):
         """创建必要的目录"""
-        directories = [cls.LOG_DIR, cls.UPLOAD_DIR, cls.WEIGHT_DIR]
+        directories = [cls.LOG_DIR, cls.UPLOAD_DIR, cls.WEIGHT_DIR, cls.DATA_DIR]
         for directory in directories:
             directory.mkdir(parents=True, exist_ok=True)
 
     @classmethod
-    def get_model_config(cls, version: str) -> Dict[str, Any]:
-        """获取指定版本的模型配置"""
-        if version not in cls.MODEL_CONFIGS:
-            raise ValueError(f"未找到模型版本: {version}")
-        return cls.MODEL_CONFIGS[version]
-
-    @classmethod
-    def get_all_model_versions(cls) -> Dict[str, list]:
-        """获取所有可用的模型版本"""
-        detect_versions = [
-            version
-            for version, config in cls.MODEL_CONFIGS.items()
-            if config["type"] == "detect"
-        ]
-        classify_versions = [
-            version
-            for version, config in cls.MODEL_CONFIGS.items()
-            if config["type"] == "classify"
-        ]
-        return {
-            "detect": detect_versions,
-            "classify": classify_versions,
-        }
-
-    @classmethod
-    def validate_file_extension(cls, filename: str) -> bool:
-        """验证文件扩展名"""
-        return (
-            "." in filename
-            and filename.rsplit(".", 1)[1].lower() in cls.ALLOWED_EXTENSIONS
-        )
-
-    @classmethod
-    def validate_file_size(cls, content_length: int) -> bool:
-        """验证文件大小"""
-        return content_length <= cls.MAX_FILE_SIZE
+    def get_model_path(cls, version: str, model_type: str) -> Path:
+        """获取模型文件保存路径"""
+        model_dir = cls.WEIGHT_DIR / version
+        model_dir.mkdir(parents=True, exist_ok=True)
+        return model_dir / f"{model_type}-best.pt"
 
     @classmethod
     def validate_model_extension(cls, filename: str) -> bool:
@@ -147,8 +96,35 @@ class Config:
         return model_type in cls.MODEL_TYPES
 
     @classmethod
-    def get_model_path(cls, version: str, model_type: str) -> Path:
-        """获取模型文件保存路径"""
-        model_dir = cls.WEIGHT_DIR / version
-        model_dir.mkdir(parents=True, exist_ok=True)
-        return model_dir / f"{model_type}-best.pt"
+    def get_model_config(cls, version: str) -> Dict[str, Any]:
+        """获取指定版本的模型配置"""
+        from common.models.database import Database
+
+        db = Database()
+        model_data = db.get_model(version, "detect") or db.get_model(
+            version, "classify"
+        )
+        if not model_data:
+            raise ValueError(f"未找到模型版本: {version}")
+        return model_data
+
+    @classmethod
+    def get_all_model_versions(cls) -> Dict[str, list]:
+        """获取所有可用的模型版本"""
+        from common.models.database import Database
+
+        db = Database()
+        return db.get_all_models()
+
+    @classmethod
+    def validate_file_extension(cls, filename: str) -> bool:
+        """验证文件扩展名"""
+        return (
+            "." in filename
+            and filename.rsplit(".", 1)[1].lower() in cls.ALLOWED_EXTENSIONS
+        )
+
+    @classmethod
+    def validate_file_size(cls, content_length: int) -> bool:
+        """验证文件大小"""
+        return content_length <= cls.MAX_FILE_SIZE
