@@ -227,3 +227,107 @@ def upload_model_controller():
     except Exception as e:
         logger.error(f"上传模型时发生错误: {str(e)}")
         return ApiResponse.internal_error(f"服务器内部错误: {str(e)}")
+
+
+def update_model_controller(model_id: int):
+    """
+    更新模型配置
+    需要在form-data中提供以下参数：
+    - conf: 置信度阈值（可选）
+    - iou: IoU阈值（可选，仅用于检测模型）
+    """
+    try:
+        # 获取模型信息
+        model_data = db.get_model_by_id(model_id)
+        if not model_data:
+            return ApiResponse.not_found(f"未找到ID为 {model_id} 的模型")
+
+        # 获取并验证参数
+        parameters = {}
+        conf = request.form.get("conf")
+        if conf is not None:
+            try:
+                conf = float(conf)
+                if not 0 <= conf <= 1:
+                    return ApiResponse.bad_request("置信度阈值必须在0到1之间")
+                parameters["conf"] = conf
+            except ValueError:
+                return ApiResponse.bad_request("置信度阈值必须是数字")
+
+        iou = request.form.get("iou")
+        if iou is not None:
+            if model_data["model_type"] != "detect":
+                return ApiResponse.bad_request("IoU阈值仅用于检测模型")
+            try:
+                iou = float(iou)
+                if not 0 <= iou <= 1:
+                    return ApiResponse.bad_request("IoU阈值必须在0到1之间")
+                parameters["iou"] = iou
+            except ValueError:
+                return ApiResponse.bad_request("IoU阈值必须是数字")
+
+        if not parameters:
+            return ApiResponse.bad_request("未提供任何要更新的参数")
+
+        # 更新模型参数
+        if not db.update_model_parameters(model_id, parameters):
+            return ApiResponse.internal_error("更新模型参数失败")
+
+        # 重新加载模型
+        try:
+            ai_service.model_manager._load_models()
+            logger.info(f"模型已重新加载: ID={model_id}")
+        except Exception as e:
+            logger.error(f"重新加载模型失败: {str(e)}")
+            return ApiResponse.internal_error("模型加载失败")
+
+        return ApiResponse.success(
+            message=f"模型参数更新成功: ID={model_id}",
+            data={"model_id": model_id, "parameters": parameters},
+        )
+
+    except Exception as e:
+        logger.error(f"更新模型参数时发生错误: {str(e)}")
+        return ApiResponse.internal_error(f"服务器内部错误: {str(e)}")
+
+
+def delete_model_controller(model_id: int):
+    """
+    删除模型
+    """
+    try:
+        # 获取模型信息
+        model_data = db.get_model_by_id(model_id)
+        if not model_data:
+            return ApiResponse.not_found(f"未找到ID为 {model_id} 的模型")
+
+        # 删除模型文件
+        file_path = Path(model_data["file_path"])
+        if file_path.exists():
+            try:
+                file_path.unlink()
+                logger.info(f"模型文件已删除: {file_path}")
+            except Exception as e:
+                logger.error(f"删除模型文件失败: {str(e)}")
+                return ApiResponse.internal_error("删除模型文件失败")
+
+        # 删除数据库记录
+        if not db.delete_model_by_id(model_id):
+            return ApiResponse.internal_error("删除模型记录失败")
+
+        # 重新加载模型
+        try:
+            ai_service.model_manager._load_models()
+            logger.info(f"模型已重新加载: ID={model_id}")
+        except Exception as e:
+            logger.error(f"重新加载模型失败: {str(e)}")
+            return ApiResponse.internal_error("模型加载失败")
+
+        return ApiResponse.success(
+            message=f"模型删除成功: ID={model_id}",
+            data={"model_id": model_id},
+        )
+
+    except Exception as e:
+        logger.error(f"删除模型时发生错误: {str(e)}")
+        return ApiResponse.internal_error(f"服务器内部错误: {str(e)}")

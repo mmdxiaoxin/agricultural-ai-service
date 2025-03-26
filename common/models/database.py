@@ -158,3 +158,131 @@ class Database:
         except Exception as e:
             logger.error(f"删除模型元数据失败: {str(e)}")
             return False
+
+    def delete_model_by_id(self, model_id: int) -> bool:
+        """
+        根据ID删除模型元数据
+
+        Args:
+            model_id: 模型ID
+
+        Returns:
+            bool: 删除是否成功
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                # 先获取模型信息用于日志
+                cursor.execute(
+                    """
+                    SELECT version, model_type FROM model_metadata 
+                    WHERE id = ?
+                """,
+                    (model_id,),
+                )
+                row = cursor.fetchone()
+                if not row:
+                    logger.warning(f"未找到ID为 {model_id} 的模型")
+                    return False
+
+                # 删除模型
+                cursor.execute(
+                    """
+                    DELETE FROM model_metadata 
+                    WHERE id = ?
+                """,
+                    (model_id,),
+                )
+                conn.commit()
+                logger.info(
+                    f"成功删除模型元数据: ID={model_id}, 版本={row[0]}, 类型={row[1]}"
+                )
+                return True
+        except Exception as e:
+            logger.error(f"删除模型元数据失败: {str(e)}")
+            return False
+
+    def get_model_by_id(self, model_id: int) -> Optional[Dict[str, Any]]:
+        """
+        根据ID获取模型元数据
+
+        Args:
+            model_id: 模型ID
+
+        Returns:
+            Optional[Dict[str, Any]]: 模型元数据，如果不存在则返回None
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT * FROM model_metadata 
+                    WHERE id = ?
+                """,
+                    (model_id,),
+                )
+                row = cursor.fetchone()
+                if row:
+                    return {
+                        "id": row[0],
+                        "version": row[1],
+                        "model_type": row[2],
+                        "file_path": row[3],
+                        "file_size": row[4],
+                        "file_hash": row[5],
+                        "created_at": row[6],
+                        "updated_at": row[7],
+                        "parameters": eval(row[8]) if row[8] else None,
+                    }
+                return None
+        except Exception as e:
+            logger.error(f"获取模型元数据失败: {str(e)}")
+            return None
+
+    def update_model_parameters(
+        self, model_id: int, parameters: Dict[str, Any]
+    ) -> bool:
+        """
+        更新模型参数
+
+        Args:
+            model_id: 模型ID
+            parameters: 要更新的参数字典
+
+        Returns:
+            bool: 更新是否成功
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                # 先获取当前参数
+                cursor.execute(
+                    """
+                    SELECT parameters FROM model_metadata 
+                    WHERE id = ?
+                """,
+                    (model_id,),
+                )
+                row = cursor.fetchone()
+                if not row:
+                    logger.warning(f"未找到ID为 {model_id} 的模型")
+                    return False
+
+                # 更新参数
+                current_params = eval(row[0]) if row[0] else {}
+                current_params.update(parameters)
+                cursor.execute(
+                    """
+                    UPDATE model_metadata 
+                    SET parameters = ?, updated_at = ?
+                    WHERE id = ?
+                """,
+                    (str(current_params), datetime.now(), model_id),
+                )
+                conn.commit()
+                logger.info(f"成功更新模型参数: ID={model_id}, 参数={parameters}")
+                return True
+        except Exception as e:
+            logger.error(f"更新模型参数失败: {str(e)}")
+            return False
