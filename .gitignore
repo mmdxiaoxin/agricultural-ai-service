@@ -75,7 +75,8 @@ logs/*
 
 # env
 .env
-.env.local
+.env.*
+.env.*.local
 
 # data
 data/*
