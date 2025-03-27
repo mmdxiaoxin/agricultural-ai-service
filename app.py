@@ -8,27 +8,30 @@ from flask import Flask, request
 from flask_cors import CORS
 from werkzeug.exceptions import RequestTimeout, RequestEntityTooLarge, HTTPException
 
-from config.app_config import Config
+from config import AppConfig
 from modules import modules
 from common.utils.response import ApiResponse
 from common.utils.redis_utils import RedisClient
+from celery_app import create_celery_app
 
 # 配置日志
 logger = logging.getLogger(__name__)
-logger.setLevel(Config.LOG_LEVEL)
+logger.setLevel(AppConfig.LOG_LEVEL)
 
 # 控制台处理器 - 只输出错误和警告
 console_handler = logging.StreamHandler()
 console_handler.setLevel(logging.WARNING)  # 只显示警告和错误
-console_formatter = logging.Formatter(Config.LOG_FORMAT)
+console_formatter = logging.Formatter(AppConfig.LOG_FORMAT)
 console_handler.setFormatter(console_formatter)
 
 # 文件处理器 - 记录所有日志
 file_handler = RotatingFileHandler(
-    Config.LOG_FILE, maxBytes=Config.LOG_MAX_BYTES, backupCount=Config.LOG_BACKUP_COUNT
+    AppConfig.LOG_FILE,
+    maxBytes=AppConfig.LOG_MAX_BYTES,
+    backupCount=AppConfig.LOG_BACKUP_COUNT,
 )
-file_handler.setLevel(Config.LOG_LEVEL)
-file_formatter = logging.Formatter(Config.LOG_FORMAT)
+file_handler.setLevel(AppConfig.LOG_LEVEL)
+file_formatter = logging.Formatter(AppConfig.LOG_FORMAT)
 file_handler.setFormatter(file_formatter)
 
 # 添加处理器
@@ -36,12 +39,15 @@ logger.addHandler(console_handler)
 logger.addHandler(file_handler)
 
 app = Flask(__name__)
-Config.init_app(app)
+AppConfig.init_app(app)
 cors = CORS(app)
+
+# 创建Celery实例
+celery = create_celery_app(app)
 
 
 # 请求超时装饰器
-def timeout_handler(timeout=Config.REQUEST_TIMEOUT):
+def timeout_handler(timeout=AppConfig.REQUEST_TIMEOUT):
     def decorator(f):
         @wraps(f)
         def wrapped(*args, **kwargs):
@@ -59,7 +65,7 @@ def timeout_handler(timeout=Config.REQUEST_TIMEOUT):
 @app.before_request
 def log_request_info():
     """记录请求信息 - 只在文件日志中记录"""
-    if Config.DEBUG:
+    if AppConfig.DEBUG:
         logger.debug("Request URL: %s", request.url)
         logger.debug("Request Method: %s", request.method)
         logger.debug("Request Headers: %s", dict(request.headers))
@@ -68,7 +74,7 @@ def log_request_info():
 @app.after_request
 def log_response_info(response):
     """记录响应信息 - 只在文件日志中记录"""
-    if Config.DEBUG:
+    if AppConfig.DEBUG:
         logger.debug("Response Status: %s", response.status)
     return response
 
@@ -85,7 +91,7 @@ def handle_file_too_large(error):
     """处理文件过大错误"""
     logger.error("File too large: %s", str(error))
     return ApiResponse.file_too_large(
-        f"文件大小超过限制（最大{Config.MAX_FILE_SIZE // (1024*1024)}MB）"
+        f"文件大小超过限制（最大{AppConfig.MAX_FILE_SIZE // (1024*1024)}MB）"
     )
 
 
@@ -200,13 +206,13 @@ def teardown_appcontext(error):
 
 if __name__ == "__main__":
     try:
-        logger.info(f"Starting server on {Config.HOST}:{Config.PORT}")
+        logger.info(f"Starting server on {AppConfig.HOST}:{AppConfig.PORT}")
         app.run(
-            debug=Config.DEBUG,
-            host=Config.HOST,
-            port=Config.PORT,
+            debug=AppConfig.DEBUG,
+            host=AppConfig.HOST,
+            port=AppConfig.PORT,
             threaded=True,
-            use_reloader=Config.DEBUG,
+            use_reloader=AppConfig.DEBUG,
         )
     except Exception as e:
         logger.error(f"Server error: {str(e)}")

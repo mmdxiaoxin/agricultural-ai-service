@@ -1,45 +1,78 @@
-import argparse
 import os
-from waitress import serve
+import argparse
+from config import AppConfig
+from app import app, celery
 
-# 设置环境变量
-parser = argparse.ArgumentParser(description="启动农业AI服务")
-parser.add_argument(
-    "--env",
-    choices=["development", "production"],
-    default="development",
-    help="运行环境 (development/production)",
-)
-parser.add_argument("--port", type=int, help="服务器端口")
-parser.add_argument("--host", help="服务器主机地址")
-parser.add_argument("--debug", action="store_true", help="是否启用调试模式")
-args = parser.parse_args()
 
-os.environ["FLASK_ENV"] = args.env
+def parse_args():
+    """解析命令行参数"""
+    parser = argparse.ArgumentParser(description="启动农业AI服务")
+    parser.add_argument(
+        "--env",
+        choices=["development", "production"],
+        default="development",
+        help="运行环境 (development/production)",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["web", "worker"],
+        default="web",
+        help="运行模式 (web/worker)",
+    )
+    parser.add_argument("--port", type=int, help="服务器端口")
+    parser.add_argument("--host", help="服务器主机地址")
+    parser.add_argument("--debug", action="store_true", help="是否启用调试模式")
+    return parser.parse_args()
 
-# 重新加载配置
-from config.app_config import load_env_files
 
-load_env_files()
+def main():
+    """主函数"""
+    # 解析命令行参数
+    args = parse_args()
 
-# 导入app
-from app import app
+    # 设置环境变量
+    os.environ["FLASK_ENV"] = args.env
 
-print(
-    f"Starting server in {args.env} mode on {app.config['HOST']}:{app.config['PORT']}"
-)
+    # 重新加载配置
+    from config.app_config import load_env_files
 
-# Waitress服务器配置
-serve(
-    app,
-    host=app.config["HOST"],
-    port=app.config["PORT"],
-    threads=16,  # 工作线程数
-    connection_limit=2000,  # 连接限制
-    channel_timeout=app.config["REQUEST_TIMEOUT"],  # 通道超时
-    url_scheme="http",
-    ident="Agricultural AI Service",  # 服务器标识
-    max_request_body_size=app.config["MAX_FILE_SIZE"],  # 最大请求体大小
-    cleanup_interval=30,  # 清理间隔
-    log_socket_errors=True,  # 记录socket错误
-)
+    load_env_files()
+
+    # 初始化配置
+    AppConfig.init_app(app)
+
+    if args.mode == "web":
+        # 启动Web服务器
+        from waitress import serve
+
+        print(
+            f"Starting server in {args.env} mode on {AppConfig.HOST}:{AppConfig.PORT}"
+        )
+        serve(
+            app,
+            host=AppConfig.HOST,
+            port=AppConfig.PORT,
+            threads=16,
+            connection_limit=2000,
+            channel_timeout=AppConfig.REQUEST_TIMEOUT,
+            url_scheme="http",
+            ident="Agricultural AI Service",
+            max_request_body_size=AppConfig.MAX_FILE_SIZE,
+            cleanup_interval=30,
+            log_socket_errors=True,
+        )
+    else:
+        # 启动Celery worker
+        argv = [
+            "worker",
+            "--loglevel=INFO",
+            "--pool=solo",  # Windows下使用solo池
+            "--concurrency=2",  # 并发worker数
+            "--hostname=worker@%h",  # worker主机名
+            "--queues=detect,classify",  # 指定要处理的队列
+        ]
+        celery.worker_main(argv)
+
+
+if __name__ == "__main__":
+    main()
