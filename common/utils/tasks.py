@@ -1,13 +1,9 @@
 import logging
-from celery import Celery
+from celery_app import celery
 from common.utils.redis_utils import RedisClient
 from services.ai_service import AIService
 
 logger = logging.getLogger(__name__)
-
-# 创建Celery实例
-celery = Celery("agricultural_ai")
-celery.config_from_object("celery_config")
 
 # 创建AI服务实例
 ai_service = AIService()

@@ -24,3 +24,7 @@ def create_celery_app(app=None):
         celery.Task = ContextTask
 
     return celery
+
+
+# 创建默认的celery实例
+celery = create_celery_app()
