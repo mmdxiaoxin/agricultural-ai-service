@@ -2,6 +2,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 from functools import wraps
 import time
+import os
 
 from flask import Flask, request
 from flask_cors import CORS
@@ -15,13 +16,13 @@ from common.utils.response import ApiResponse
 logger = logging.getLogger(__name__)
 logger.setLevel(Config.LOG_LEVEL)
 
-# 控制台处理器
+# 控制台处理器 - 只输出错误和警告
 console_handler = logging.StreamHandler()
-console_handler.setLevel(Config.LOG_LEVEL)
+console_handler.setLevel(logging.WARNING)  # 只显示警告和错误
 console_formatter = logging.Formatter(Config.LOG_FORMAT)
 console_handler.setFormatter(console_formatter)
 
-# 文件处理器
+# 文件处理器 - 记录所有日志
 file_handler = RotatingFileHandler(
     Config.LOG_FILE, maxBytes=Config.LOG_MAX_BYTES, backupCount=Config.LOG_BACKUP_COUNT
 )
@@ -36,6 +37,9 @@ logger.addHandler(file_handler)
 app = Flask(__name__)
 Config.init_app(app)
 cors = CORS(app)
+
+# 设置环境变量
+os.environ["FLASK_ENV"] = "production" if not Config.DEBUG else "development"
 
 
 # 请求超时装饰器
@@ -56,16 +60,16 @@ def timeout_handler(timeout=Config.REQUEST_TIMEOUT):
 
 @app.before_request
 def log_request_info():
-    """记录请求信息"""
-    logger.info("Request URL: %s", request.url)
-    logger.info("Request Method: %s", request.method)
-    logger.info("Request Headers: %s", dict(request.headers))
+    """记录请求信息 - 只在文件日志中记录"""
+    logger.debug("Request URL: %s", request.url)
+    logger.debug("Request Method: %s", request.method)
+    logger.debug("Request Headers: %s", dict(request.headers))
 
 
 @app.after_request
 def log_response_info(response):
-    """记录响应信息"""
-    logger.info("Response Status: %s", response.status)
+    """记录响应信息 - 只在文件日志中记录"""
+    logger.debug("Response Status: %s", response.status)
     return response
 
 
@@ -99,7 +103,13 @@ for module in modules:
 if __name__ == "__main__":
     try:
         logger.info(f"Starting server on {Config.HOST}:{Config.PORT}")
-        app.run(debug=Config.DEBUG, host=Config.HOST, port=Config.PORT, threaded=True)
+        app.run(
+            debug=Config.DEBUG,
+            host=Config.HOST,
+            port=Config.PORT,
+            threaded=True,
+            use_reloader=Config.DEBUG,
+        )
     except Exception as e:
         logger.error(f"Server error: {str(e)}")
     finally:
