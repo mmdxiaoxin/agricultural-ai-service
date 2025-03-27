@@ -47,7 +47,7 @@ class Config:
     """应用配置类"""
 
     # 基础路径配置
-    BASE_DIR = Path(__file__).parent
+    BASE_DIR = Path(__file__).parent.parent  # 指向项目根目录
     LOG_DIR = BASE_DIR / "logs"
     UPLOAD_DIR = BASE_DIR / "uploads"
     WEIGHT_DIR = BASE_DIR / "weight"
@@ -74,20 +74,6 @@ class Config:
     LOG_MAX_BYTES = 10 * 1024 * 1024  # 10MB
     LOG_BACKUP_COUNT = 5
 
-    # 配置日志
-    logging.basicConfig(
-        level=LOG_LEVEL,
-        format=LOG_FORMAT,
-        handlers=[
-            logging.FileHandler(LOG_FILE),
-            logging.StreamHandler(),
-        ],
-    )
-
-    # 设置waitress的日志级别
-    logging.getLogger("waitress").setLevel(logging.WARNING)
-    logging.getLogger("waitress.queue").setLevel(logging.WARNING)
-
     # 文件上传配置
     ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
     MAX_FILE_SIZE = 16 * 1024 * 1024  # 16MB
@@ -112,6 +98,20 @@ class Config:
         """初始化应用配置"""
         # 创建必要的目录
         cls._create_directories()
+
+        # 配置日志
+        logging.basicConfig(
+            level=cls.LOG_LEVEL,
+            format=cls.LOG_FORMAT,
+            handlers=[
+                logging.FileHandler(cls.LOG_FILE),
+                logging.StreamHandler(),
+            ],
+        )
+
+        # 设置waitress的日志级别
+        logging.getLogger("waitress").setLevel(logging.WARNING)
+        logging.getLogger("waitress.queue").setLevel(logging.WARNING)
 
         # 配置Flask应用
         app.config.from_object(cls)
@@ -187,6 +187,4 @@ class Config:
     @classmethod
     def validate_file_size(cls, content_length: int) -> bool:
         """验证文件大小"""
-        return content_length <= cls.MAX_FILE_SIZE
-
         return content_length <= cls.MAX_FILE_SIZE

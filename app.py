@@ -6,11 +6,12 @@ import os
 
 from flask import Flask, request
 from flask_cors import CORS
-from werkzeug.exceptions import RequestTimeout, RequestEntityTooLarge
+from werkzeug.exceptions import RequestTimeout, RequestEntityTooLarge, HTTPException
 
-from config import Config
+from config.app_config import Config
 from modules import modules
 from common.utils.response import ApiResponse
+from common.utils.redis_utils import RedisClient
 
 # 配置日志
 logger = logging.getLogger(__name__)
@@ -76,7 +77,7 @@ def log_response_info(response):
 def handle_timeout(error):
     """处理请求超时错误"""
     logger.error("Request timeout: %s", str(error))
-    return ApiResponse.timeout("请求处理超时，请稍后重试")
+    return ApiResponse.timeout("请求超时")
 
 
 @app.errorhandler(RequestEntityTooLarge)
@@ -88,16 +89,114 @@ def handle_file_too_large(error):
     )
 
 
+# 注册所有模块的路由
+for module in modules:
+    app.register_blueprint(module, url_prefix="/ai")
+
+
+# 注册错误处理
+@app.errorhandler(404)
+def not_found_error(error):
+    return ApiResponse.not_found("请求的资源不存在")
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    return ApiResponse.internal_error("服务器内部错误")
+
+
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    return ApiResponse.file_too_large("文件大小超过限制")
+
+
+@app.errorhandler(400)
+def bad_request_error(error):
+    return ApiResponse.bad_request(str(error))
+
+
+@app.errorhandler(401)
+def unauthorized_error(error):
+    return ApiResponse.unauthorized("未授权访问")
+
+
+@app.errorhandler(403)
+def forbidden_error(error):
+    return ApiResponse.forbidden("禁止访问")
+
+
+@app.errorhandler(429)
+def too_many_requests_error(error):
+    return ApiResponse.too_many_requests("请求过于频繁")
+
+
+@app.errorhandler(503)
+def service_unavailable_error(error):
+    return ApiResponse.service_unavailable("服务暂时不可用")
+
+
+@app.errorhandler(504)
+def gateway_timeout_error(error):
+    return ApiResponse.gateway_timeout("网关超时")
+
+
+@app.errorhandler(505)
+def http_version_not_supported_error(error):
+    return ApiResponse.http_version_not_supported("不支持的HTTP版本")
+
+
+@app.errorhandler(HTTPException)
+def handle_http_exception(error):
+    """处理HTTP异常"""
+    error_code = error.code
+    error_message = str(error)
+
+    # 根据错误码返回不同的响应
+    if error_code == 507:
+        return ApiResponse.insufficient_storage("存储空间不足")
+    elif error_code == 508:
+        return ApiResponse.loop_detected("检测到循环")
+    elif error_code == 509:
+        return ApiResponse.bandwidth_limit_exceeded("超出带宽限制")
+    elif error_code == 510:
+        return ApiResponse.not_extended("需要扩展")
+    elif error_code == 511:
+        return ApiResponse.network_authentication_required("需要网络认证")
+    elif error_code == 598:
+        return ApiResponse.network_read_timeout("网络读取超时")
+    elif error_code == 599:
+        return ApiResponse.network_connect_timeout("网络连接超时")
+    else:
+        return ApiResponse.internal_error(error_message)
+
+
 @app.errorhandler(Exception)
-def handle_generic_error(error):
+def handle_exception(error):
     """处理通用错误"""
     logger.error("Unhandled error: %s", str(error))
     return ApiResponse.internal_error("服务器内部错误")
 
 
-# 注册所有模块的路由
-for module in modules:
-    app.register_blueprint(module, url_prefix="/ai")
+# 注册请求前处理
+@app.before_request
+def before_request():
+    # 这里可以添加请求前的处理逻辑
+    pass
+
+
+# 注册请求后处理
+@app.after_request
+def after_request(response):
+    # 这里可以添加请求后的处理逻辑
+    return response
+
+
+# 注册关闭处理
+@app.teardown_appcontext
+def teardown_appcontext(error):
+    # 这里可以添加应用上下文关闭时的清理逻辑
+    pass
+
 
 if __name__ == "__main__":
     try:

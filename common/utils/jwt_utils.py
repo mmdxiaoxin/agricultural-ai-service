@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional, Callable, Union
 from functools import wraps
 from flask import request, current_app
 from common.utils.response import ApiResponse
-from config import Config
+from config.app_config import Config
 
 
 class JWTUtils:

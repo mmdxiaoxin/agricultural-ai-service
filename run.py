@@ -18,7 +18,7 @@ args = parser.parse_args()
 os.environ["FLASK_ENV"] = args.env
 
 # 重新加载配置
-from config import load_env_files
+from config.app_config import load_env_files
 
 load_env_files()
 

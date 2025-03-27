@@ -12,7 +12,7 @@ import hashlib
 from datetime import datetime
 
 from common.models.database import Database
-from config import Config
+from config.app_config import Config
 
 # 配置日志
 logging.basicConfig(

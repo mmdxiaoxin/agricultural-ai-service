@@ -7,7 +7,7 @@ import hashlib
 
 from services.ai_service import AIService
 from common.utils.response import ApiResponse, ResponseCode
-from config import Config
+from config.app_config import Config
 from common.models.database import Database
 from common.utils.redis_utils import RedisClient
 from common.utils.tasks import detect_task, classify_task
