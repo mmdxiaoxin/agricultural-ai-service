@@ -38,9 +38,6 @@ app = Flask(__name__)
 Config.init_app(app)
 cors = CORS(app)
 
-# 设置环境变量
-os.environ["FLASK_ENV"] = "production" if not Config.DEBUG else "development"
-
 
 # 请求超时装饰器
 def timeout_handler(timeout=Config.REQUEST_TIMEOUT):

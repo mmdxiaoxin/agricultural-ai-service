@@ -3,30 +3,39 @@ from pathlib import Path
 from typing import Dict, Any
 from dotenv import load_dotenv
 
+# 添加一个标志来防止重复加载
+_config_loaded = False
+
 
 def load_env_files():
     """加载环境配置文件"""
-    # 首先加载基础配置
-    load_dotenv(".env")
+    global _config_loaded
+
+    # 如果已经加载过配置，则跳过
+    if _config_loaded:
+        return
 
     # 获取当前环境
     env = os.getenv("FLASK_ENV", "development")
     env_file = f".env.{env}"
 
+    # 清除之前加载的环境变量
+    for key in os.environ.keys():
+        if key.startswith(("HOST", "PORT", "FLASK_", "LOG_", "REQUEST_", "JWT_")):
+            del os.environ[key]
+
+    # 首先加载基础配置
+    load_dotenv(".env")
+
     # 如果存在环境配置文件，则加载它
     if os.path.exists(env_file):
-        # 清除之前加载的环境变量
-        for key in os.environ.keys():
-            if key.startswith(("HOST", "PORT", "FLASK_", "LOG_", "REQUEST_", "JWT_")):
-                del os.environ[key]
-
-        # 重新加载基础配置
-        load_dotenv(".env")
         # 加载环境特定配置
         load_dotenv(env_file, override=True)
         print(f"已加载环境配置文件: {env_file}")
     else:
         print(f"未找到环境配置文件: {env_file}，使用默认配置")
+
+    _config_loaded = True
 
 
 # 加载环境配置
