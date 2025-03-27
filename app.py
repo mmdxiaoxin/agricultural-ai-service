@@ -61,15 +61,17 @@ def timeout_handler(timeout=Config.REQUEST_TIMEOUT):
 @app.before_request
 def log_request_info():
     """记录请求信息 - 只在文件日志中记录"""
-    logger.debug("Request URL: %s", request.url)
-    logger.debug("Request Method: %s", request.method)
-    logger.debug("Request Headers: %s", dict(request.headers))
+    if Config.DEBUG:
+        logger.debug("Request URL: %s", request.url)
+        logger.debug("Request Method: %s", request.method)
+        logger.debug("Request Headers: %s", dict(request.headers))
 
 
 @app.after_request
 def log_response_info(response):
     """记录响应信息 - 只在文件日志中记录"""
-    logger.debug("Response Status: %s", response.status)
+    if Config.DEBUG:
+        logger.debug("Response Status: %s", response.status)
     return response
 
 
