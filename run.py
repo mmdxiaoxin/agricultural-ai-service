@@ -18,6 +18,7 @@ def parse_args():
 
 def main():
     """主函数"""
+
     # 解析命令行参数
     args = parse_args()
 
@@ -28,9 +29,7 @@ def main():
         # 启动Web服务器
         from waitress import serve
 
-        print(
-            f"Starting server in {args.env} mode on {AppConfig.HOST}:{AppConfig.PORT}"
-        )
+        print(f"Starting server on {AppConfig.HOST}:{AppConfig.PORT}")
         serve(
             app,
             host=AppConfig.HOST,
