@@ -2,7 +2,6 @@ import logging
 from celery import Celery
 from common.utils.redis_utils import RedisClient
 from services.ai_service import AIService
-from config import Config
 
 logger = logging.getLogger(__name__)
 

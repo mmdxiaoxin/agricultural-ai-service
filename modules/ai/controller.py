@@ -10,7 +10,7 @@ from common.utils.response import ApiResponse, ResponseCode
 from config import Config
 from common.models.database import Database
 from common.utils.redis_utils import RedisClient
-from tasks import detect_task, classify_task
+from common.utils.tasks import detect_task, classify_task
 
 logger = logging.getLogger(__name__)
 
