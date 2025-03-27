@@ -1,5 +1,6 @@
 import logging
 from typing import Dict, Any, Optional, List
+import threading
 
 from common.models.model_manager import ModelManager
 
@@ -7,10 +8,23 @@ logger = logging.getLogger(__name__)
 
 
 class AIService:
-    """AI服务类，统一处理模型推理请求"""
+    """AI服务类，统一处理模型推理请求（单例模式）"""
+
+    _instance = None
+    _lock = threading.Lock()
+
+    def __new__(cls):
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super(AIService, cls).__new__(cls)
+        return cls._instance
 
     def __init__(self):
-        self.model_manager = ModelManager()
+        # 防止重复初始化
+        if not hasattr(self, "_initialized"):
+            self.model_manager = ModelManager()
+            self._initialized = True
 
     def detect(self, version: str, image_data: bytes) -> Optional[List[Dict[str, Any]]]:
         """

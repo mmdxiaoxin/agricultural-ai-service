@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Dict, Optional, Any
 import hashlib
 from datetime import datetime
+import threading
 
 from common.models.base_model import DetectYOLOModel, ClassifyYOLOModel
 from common.models.database import Database
@@ -12,13 +13,35 @@ logger = logging.getLogger(__name__)
 
 
 class ModelManager:
-    """模型管理器，负责模型的加载和管理"""
+    """模型管理器，负责模型的加载和管理（单例模式）"""
+
+    _instance = None
+    _lock = threading.Lock()
+
+    def __new__(cls):
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super(ModelManager, cls).__new__(cls)
+        return cls._instance
 
     def __init__(self):
-        self._detect_models: Dict[str, DetectYOLOModel] = {}
-        self._classify_models: Dict[str, ClassifyYOLOModel] = {}
-        self._db = Database()
-        self._load_models()
+        # 防止重复初始化
+        if not hasattr(self, "_initialized"):
+            self._detect_models: Dict[str, DetectYOLOModel] = {}
+            self._classify_models: Dict[str, ClassifyYOLOModel] = {}
+            self._db = Database()
+            self._model_locks: Dict[str, threading.Lock] = {}  # 每个模型的操作锁
+            self._initialized = True
+            self._load_models()
+
+    def _get_model_lock(self, model_key: str) -> threading.Lock:
+        """获取模型的操作锁"""
+        if model_key not in self._model_locks:
+            with self._lock:
+                if model_key not in self._model_locks:
+                    self._model_locks[model_key] = threading.Lock()
+        return self._model_locks[model_key]
 
     def _calculate_file_hash(self, file_path: Path) -> str:
         """计算文件的MD5哈希值"""
@@ -29,67 +52,68 @@ class ModelManager:
         return hash_md5.hexdigest()
 
     def _load_models(self):
-        """从数据库加载所有模型"""
-        try:
-            # 获取所有模型元数据
-            models = self._db.get_all_models()
+        """从数据库加载所有模型（线程安全）"""
+        with self._lock:
+            try:
+                # 获取所有模型元数据
+                models = self._db.get_all_models()
 
-            # 加载检测模型
-            for version in models["detect"]:
-                try:
-                    model_data = self._db.get_model(version, "detect")
-                    if model_data and Path(model_data["file_path"]).exists():
-                        # 设置YOLOv8模型的输出控制
-                        model_data["parameters"] = model_data.get("parameters", {})
-                        model_data["parameters"].update(
-                            {
-                                "verbose": False,
-                                "show": False,
-                                "save": False,
-                            }
-                        )
-                        self._detect_models[version] = DetectYOLOModel(
-                            model_data["file_path"], model_data["parameters"]
-                        )
-                        logger.info(f"成功加载检测模型: {version}")
-                    else:
-                        logger.warning(f"检测模型文件不存在: {version}")
-                except Exception as e:
-                    logger.error(f"加载检测模型 {version} 失败: {str(e)}")
+                # 加载检测模型
+                for version in models["detect"]:
+                    try:
+                        model_data = self._db.get_model(version, "detect")
+                        if model_data and Path(model_data["file_path"]).exists():
+                            # 设置YOLOv8模型的输出控制
+                            model_data["parameters"] = model_data.get("parameters", {})
+                            model_data["parameters"].update(
+                                {
+                                    "verbose": False,  # 禁用详细输出
+                                    "show": False,  # 禁用显示
+                                    "save": False,  # 禁用保存
+                                }
+                            )
+                            self._detect_models[version] = DetectYOLOModel(
+                                model_data["file_path"], model_data["parameters"]
+                            )
+                            logger.info(f"成功加载检测模型: {version}")
+                        else:
+                            logger.warning(f"检测模型文件不存在: {version}")
+                    except Exception as e:
+                        logger.error(f"加载检测模型 {version} 失败: {str(e)}")
 
-            # 加载分类模型
-            for version in models["classify"]:
-                try:
-                    model_data = self._db.get_model(version, "classify")
-                    if model_data and Path(model_data["file_path"]).exists():
-                        model_data["parameters"] = model_data.get("parameters", {})
-                        model_data["parameters"].update(
-                            {
-                                "verbose": False,
-                                "show": False,
-                                "save": False,
-                            }
-                        )
-                        self._classify_models[version] = ClassifyYOLOModel(
-                            model_data["file_path"], model_data["parameters"]
-                        )
-                        logger.info(f"成功加载分类模型: {version}")
-                    else:
-                        logger.warning(f"分类模型文件不存在: {version}")
-                except Exception as e:
-                    logger.error(f"加载分类模型 {version} 失败: {str(e)}")
+                # 加载分类模型
+                for version in models["classify"]:
+                    try:
+                        model_data = self._db.get_model(version, "classify")
+                        if model_data and Path(model_data["file_path"]).exists():
+                            model_data["parameters"] = model_data.get("parameters", {})
+                            model_data["parameters"].update(
+                                {
+                                    "verbose": False,  # 禁用详细输出
+                                    "show": False,  # 禁用显示
+                                    "save": False,  # 禁用保存
+                                }
+                            )
+                            self._classify_models[version] = ClassifyYOLOModel(
+                                model_data["file_path"], model_data["parameters"]
+                            )
+                            logger.info(f"成功加载分类模型: {version}")
+                        else:
+                            logger.warning(f"分类模型文件不存在: {version}")
+                    except Exception as e:
+                        logger.error(f"加载分类模型 {version} 失败: {str(e)}")
 
-            if not self._detect_models and not self._classify_models:
-                logger.warning("未找到任何模型文件")
-            else:
-                logger.info(
-                    f"模型加载完成，检测模型: {list(self._detect_models.keys())}, "
-                    f"分类模型: {list(self._classify_models.keys())}"
-                )
+                if not self._detect_models and not self._classify_models:
+                    logger.warning("未找到任何模型文件")
+                else:
+                    logger.info(
+                        f"模型加载完成，检测模型: {list(self._detect_models.keys())}, "
+                        f"分类模型: {list(self._classify_models.keys())}"
+                    )
 
-        except Exception as e:
-            logger.error(f"模型加载过程发生错误: {str(e)}")
-            raise
+            except Exception as e:
+                logger.error(f"模型加载过程发生错误: {str(e)}")
+                raise
 
     def add_model(
         self,
@@ -126,12 +150,16 @@ class ModelManager:
             return False
 
     def get_detect_model(self, version: str) -> Optional[DetectYOLOModel]:
-        """获取指定版本的检测模型"""
-        return self._detect_models.get(version)
+        """获取指定版本的检测模型（线程安全）"""
+        model_key = f"detect_{version}"
+        with self._get_model_lock(model_key):
+            return self._detect_models.get(version)
 
     def get_classify_model(self, version: str) -> Optional[ClassifyYOLOModel]:
-        """获取指定版本的分类模型"""
-        return self._classify_models.get(version)
+        """获取指定版本的分类模型（线程安全）"""
+        model_key = f"classify_{version}"
+        with self._get_model_lock(model_key):
+            return self._classify_models.get(version)
 
     def get_available_versions(self) -> Dict[str, list]:
         """获取所有可用的模型版本"""
