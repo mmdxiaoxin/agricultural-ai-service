@@ -39,8 +39,17 @@ class ModelManager:
                 try:
                     model_data = self._db.get_model(version, "detect")
                     if model_data and Path(model_data["file_path"]).exists():
+                        # 设置YOLOv8模型的输出控制
+                        model_data["parameters"] = model_data.get("parameters", {})
+                        model_data["parameters"].update(
+                            {
+                                "verbose": False,
+                                "show": False,
+                                "save": False,
+                            }
+                        )
                         self._detect_models[version] = DetectYOLOModel(
-                            model_data["file_path"], model_data.get("parameters")
+                            model_data["file_path"], model_data["parameters"]
                         )
                         logger.info(f"成功加载检测模型: {version}")
                     else:
@@ -53,8 +62,16 @@ class ModelManager:
                 try:
                     model_data = self._db.get_model(version, "classify")
                     if model_data and Path(model_data["file_path"]).exists():
+                        model_data["parameters"] = model_data.get("parameters", {})
+                        model_data["parameters"].update(
+                            {
+                                "verbose": False,
+                                "show": False,
+                                "save": False,
+                            }
+                        )
                         self._classify_models[version] = ClassifyYOLOModel(
-                            model_data["file_path"], model_data.get("parameters")
+                            model_data["file_path"], model_data["parameters"]
                         )
                         logger.info(f"成功加载分类模型: {version}")
                     else:
