@@ -97,7 +97,11 @@ def get_detect_result_controller(task_id: str):
             result = RedisClient.get_cache(cache_key)
             if result:
                 return ApiResponse.success(
-                    data={"task_id": task_id, "status": "success", "result": result}
+                    data={
+                        "task_id": task_id,
+                        "status": "success",
+                        "predictions": result,
+                    }
                 )
             return ApiResponse.not_found("结果已过期")
         elif task.state == "FAILURE":
@@ -187,7 +191,11 @@ def get_classify_result_controller(task_id: str):
             result = RedisClient.get_cache(cache_key)
             if result:
                 return ApiResponse.success(
-                    data={"task_id": task_id, "status": "success", "result": result}
+                    data={
+                        "task_id": task_id,
+                        "status": "success",
+                        "predictions": result,
+                    }
                 )
             return ApiResponse.not_found("结果已过期")
         elif task.state == "FAILURE":
