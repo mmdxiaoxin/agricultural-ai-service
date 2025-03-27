@@ -39,10 +39,6 @@ def load_env_files():
     _config_loaded = True
 
 
-# 加载环境配置
-load_env_files()
-
-
 class Config:
     """应用配置类"""
 
@@ -96,6 +92,9 @@ class Config:
     @classmethod
     def init_app(cls, app):
         """初始化应用配置"""
+        # 加载环境配置
+        load_env_files()
+
         # 创建必要的目录
         cls._create_directories()
 
