@@ -18,8 +18,8 @@ def detect_task(self, version: str, image_data: bytes):
         if result is None:
             raise Exception(f"未找到模型版本: {version}")
 
-        # 缓存结果
-        cache_key = f"detect:{version}:{self.request.id}"
+        # 缓存结果，直接使用task_id
+        cache_key = f"detect:{self.request.id}"
         RedisClient.set_cache(cache_key, result, ttl=3600)  # 缓存1小时
 
         return result
@@ -37,8 +37,8 @@ def classify_task(self, version: str, image_data: bytes):
         if result is None:
             raise Exception(f"未找到模型版本: {version}")
 
-        # 缓存结果
-        cache_key = f"classify:{version}:{self.request.id}"
+        # 缓存结果，直接使用task_id
+        cache_key = f"classify:{self.request.id}"
         RedisClient.set_cache(cache_key, result, ttl=3600)  # 缓存1小时
 
         return result

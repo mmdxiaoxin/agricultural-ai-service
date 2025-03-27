@@ -92,8 +92,8 @@ def get_detect_result_controller(task_id: str):
                 }
             )
         elif task.state == "SUCCESS":
-            # 从缓存获取结果
-            cache_key = f"detect:{task.info[0]}:{task_id}"  # task.info[0]是version
+            # 从缓存获取结果，直接使用task_id
+            cache_key = f"detect:{task_id}"
             result = RedisClient.get_cache(cache_key)
             if result:
                 return ApiResponse.success(
@@ -182,8 +182,8 @@ def get_classify_result_controller(task_id: str):
                 }
             )
         elif task.state == "SUCCESS":
-            # 从缓存获取结果
-            cache_key = f"classify:{task.info[0]}:{task_id}"  # task.info[0]是version
+            # 从缓存获取结果，直接使用task_id
+            cache_key = f"classify:{task_id}"
             result = RedisClient.get_cache(cache_key)
             if result:
                 return ApiResponse.success(
