@@ -7,6 +7,8 @@ from .controller import (
     upload_model_controller,
     update_model_controller,
     delete_model_controller,
+    get_detect_result_controller,
+    get_classify_result_controller,
 )
 from common.utils.jwt_utils import apply_auth_decorators
 
@@ -21,10 +23,16 @@ ai_bp.route("/versions", methods=["GET"])(
 ai_bp.route("/detect/<version>", methods=["POST"])(
     apply_auth_decorators("user", "admin", "expert")(detect_controller)
 )
+ai_bp.route("/detect/result/<task_id>", methods=["GET"])(
+    apply_auth_decorators("user", "admin", "expert")(get_detect_result_controller)
+)
 
 # 分类模型路由
 ai_bp.route("/classify/<version>", methods=["POST"])(
     apply_auth_decorators("user", "admin", "expert")(classify_controller)
+)
+ai_bp.route("/classify/result/<task_id>", methods=["GET"])(
+    apply_auth_decorators("user", "admin", "expert")(get_classify_result_controller)
 )
 
 # 模型上传路由

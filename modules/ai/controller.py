@@ -10,6 +10,7 @@ from common.utils.response import ApiResponse, ResponseCode
 from config import Config
 from common.models.database import Database
 from common.utils.redis_utils import RedisClient
+from tasks import detect_task, classify_task
 
 logger = logging.getLogger(__name__)
 
@@ -47,15 +48,20 @@ def detect_controller(version: str):
         if not Config.validate_file_extension(image_file.filename):
             return ApiResponse.bad_request("不支持的文件类型，仅支持PNG和JPG格式")
 
-        # 调用服务层进行推理
+        # 读取图片数据
         image_data = image_file.read()
-        result = ai_service.detect(version, image_data)
 
-        if result is None:
-            return ApiResponse.not_found(f"未找到模型版本: {version}")
+        # 提交异步任务
+        task = detect_task.delay(version, image_data)
 
-        # 返回推理结果
-        return ApiResponse.success(data={"predictions": result})
+        # 返回任务ID
+        return ApiResponse.success(
+            data={
+                "task_id": task.id,
+                "status": "processing",
+                "message": "任务已提交，请稍后查询结果",
+            }
+        )
 
     except RequestEntityTooLarge:
         logger.error("请求文件过大")
@@ -65,6 +71,43 @@ def detect_controller(version: str):
     except Exception as e:
         logger.error(f"处理请求时发生错误: {str(e)}")
         return ApiResponse.internal_error(f"服务器内部错误: {str(e)}")
+
+
+def get_detect_result_controller(task_id: str):
+    """获取目标检测任务结果"""
+    try:
+        # 获取任务状态
+        task = detect_task.AsyncResult(task_id)
+
+        if task.state == "PENDING":
+            return ApiResponse.success(
+                data={"task_id": task_id, "status": "pending", "message": "任务等待中"}
+            )
+        elif task.state == "PROGRESS":
+            return ApiResponse.success(
+                data={
+                    "task_id": task_id,
+                    "status": "processing",
+                    "message": "任务处理中",
+                }
+            )
+        elif task.state == "SUCCESS":
+            # 获取缓存的结果
+            cache_key = f"detect:{task.info.get('version')}:{task_id}"
+            result = RedisClient.get_cache(cache_key)
+            if result:
+                return ApiResponse.success(
+                    data={"task_id": task_id, "status": "success", "result": result}
+                )
+            return ApiResponse.not_found("结果已过期")
+        elif task.state == "FAILURE":
+            return ApiResponse.internal_error(f"任务失败: {str(task.info)}")
+        else:
+            return ApiResponse.internal_error(f"未知任务状态: {task.state}")
+
+    except Exception as e:
+        logger.error(f"获取任务结果失败: {str(e)}")
+        return ApiResponse.internal_error("获取任务结果失败")
 
 
 def classify_controller(version: str):
@@ -95,15 +138,20 @@ def classify_controller(version: str):
         if not Config.validate_file_extension(image_file.filename):
             return ApiResponse.bad_request("不支持的文件类型，仅支持PNG和JPG格式")
 
-        # 调用服务层进行推理
+        # 读取图片数据
         image_data = image_file.read()
-        result = ai_service.classify(version, image_data)
 
-        if result is None:
-            return ApiResponse.not_found(f"未找到模型版本: {version}")
+        # 提交异步任务
+        task = classify_task.delay(version, image_data)
 
-        # 返回推理结果
-        return ApiResponse.success(data={"predictions": result})
+        # 返回任务ID
+        return ApiResponse.success(
+            data={
+                "task_id": task.id,
+                "status": "processing",
+                "message": "任务已提交，请稍后查询结果",
+            }
+        )
 
     except RequestEntityTooLarge:
         logger.error("请求文件过大")
@@ -113,6 +161,43 @@ def classify_controller(version: str):
     except Exception as e:
         logger.error(f"处理请求时发生错误: {str(e)}")
         return ApiResponse.internal_error(f"服务器内部错误: {str(e)}")
+
+
+def get_classify_result_controller(task_id: str):
+    """获取图像分类任务结果"""
+    try:
+        # 获取任务状态
+        task = classify_task.AsyncResult(task_id)
+
+        if task.state == "PENDING":
+            return ApiResponse.success(
+                data={"task_id": task_id, "status": "pending", "message": "任务等待中"}
+            )
+        elif task.state == "PROGRESS":
+            return ApiResponse.success(
+                data={
+                    "task_id": task_id,
+                    "status": "processing",
+                    "message": "任务处理中",
+                }
+            )
+        elif task.state == "SUCCESS":
+            # 获取缓存的结果
+            cache_key = f"classify:{task.info.get('version')}:{task_id}"
+            result = RedisClient.get_cache(cache_key)
+            if result:
+                return ApiResponse.success(
+                    data={"task_id": task_id, "status": "success", "result": result}
+                )
+            return ApiResponse.not_found("结果已过期")
+        elif task.state == "FAILURE":
+            return ApiResponse.internal_error(f"任务失败: {str(task.info)}")
+        else:
+            return ApiResponse.internal_error(f"未知任务状态: {task.state}")
+
+    except Exception as e:
+        logger.error(f"获取任务结果失败: {str(e)}")
+        return ApiResponse.internal_error("获取任务结果失败")
 
 
 def get_versions_controller():
