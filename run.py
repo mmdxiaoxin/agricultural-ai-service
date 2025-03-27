@@ -28,13 +28,18 @@ from app import app
 print(
     f"Starting server in {args.env} mode on {app.config['HOST']}:{app.config['PORT']}"
 )
+
+# Waitress服务器配置
 serve(
     app,
     host=app.config["HOST"],
     port=app.config["PORT"],
-    threads=4,
-    connection_limit=1000,
-    channel_timeout=app.config["REQUEST_TIMEOUT"],
+    threads=16,  # 工作线程数
+    connection_limit=2000,  # 连接限制
+    channel_timeout=app.config["REQUEST_TIMEOUT"],  # 通道超时
     url_scheme="http",
-    ident="Agricultural AI Service",
+    ident="Agricultural AI Service",  # 服务器标识
+    max_request_body_size=app.config["MAX_FILE_SIZE"],  # 最大请求体大小
+    cleanup_interval=30,  # 清理间隔
+    log_socket_errors=True,  # 记录socket错误
 )
