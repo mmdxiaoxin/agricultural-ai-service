@@ -97,6 +97,16 @@ class Config:
     MODEL_ALLOWED_EXTENSIONS = {"pt", "pth", "onnx"}
     MODEL_UPLOAD_MAX_SIZE = 500 * 1024 * 1024  # 500MB
 
+    # Redis配置
+    REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+    REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+    REDIS_DB = int(os.getenv("REDIS_DB", "0"))
+    REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
+    REDIS_CACHE_TTL = int(os.getenv("REDIS_CACHE_TTL", "3600"))  # 缓存过期时间（秒）
+
+    # 模型版本缓存键
+    MODEL_VERSIONS_CACHE_KEY = "ai:model:versions"
+
     @classmethod
     def init_app(cls, app):
         """初始化应用配置"""

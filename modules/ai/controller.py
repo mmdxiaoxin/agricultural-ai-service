@@ -9,6 +9,7 @@ from services.ai_service import AIService
 from common.utils.response import ApiResponse, ResponseCode
 from config import Config
 from common.models.database import Database
+from common.utils.redis_utils import RedisClient
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +118,18 @@ def classify_controller(version: str):
 def get_versions_controller():
     """获取所有可用的模型版本"""
     try:
+        # 尝试从缓存获取
+        cached_versions = RedisClient.get_cache(Config.MODEL_VERSIONS_CACHE_KEY)
+        if cached_versions:
+            logger.debug("从缓存获取模型版本")
+            return ApiResponse.success(data={"versions": cached_versions})
+
+        # 缓存未命中，从数据库获取
         versions = db.get_all_models()
+
+        # 更新缓存
+        RedisClient.set_cache(Config.MODEL_VERSIONS_CACHE_KEY, versions)
+
         return ApiResponse.success(data={"versions": versions})
     except Exception as e:
         logger.error(f"获取模型版本失败: {str(e)}")
@@ -276,6 +288,8 @@ def update_model_controller(model_id: int):
         # 重新加载模型
         try:
             ai_service.model_manager._load_models()
+            # 清除缓存
+            RedisClient.delete_cache(Config.MODEL_VERSIONS_CACHE_KEY)
             logger.info(f"模型已重新加载: ID={model_id}")
         except Exception as e:
             logger.error(f"重新加载模型失败: {str(e)}")
@@ -318,6 +332,8 @@ def delete_model_controller(model_id: int):
         # 重新加载模型
         try:
             ai_service.model_manager._load_models()
+            # 清除缓存
+            RedisClient.delete_cache(Config.MODEL_VERSIONS_CACHE_KEY)
             logger.info(f"模型已重新加载: ID={model_id}")
         except Exception as e:
             logger.error(f"重新加载模型失败: {str(e)}")
