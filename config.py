@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from typing import Dict, Any
 from dotenv import load_dotenv
+import logging
 
 # 添加一个标志来防止重复加载
 _config_loaded = False
@@ -72,6 +73,20 @@ class Config:
     LOG_FILE = LOG_DIR / "app.log"
     LOG_MAX_BYTES = 10 * 1024 * 1024  # 10MB
     LOG_BACKUP_COUNT = 5
+
+    # 配置日志
+    logging.basicConfig(
+        level=LOG_LEVEL,
+        format=LOG_FORMAT,
+        handlers=[
+            logging.FileHandler(LOG_FILE),
+            logging.StreamHandler(),
+        ],
+    )
+
+    # 设置waitress的日志级别
+    logging.getLogger("waitress").setLevel(logging.WARNING)
+    logging.getLogger("waitress.queue").setLevel(logging.WARNING)
 
     # 文件上传配置
     ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
