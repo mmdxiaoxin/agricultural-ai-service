@@ -2,6 +2,7 @@ import os
 import argparse
 from config import AppConfig
 from app import app, celery
+from config.app_config import load_env_files
 
 
 def parse_args():
@@ -32,6 +33,9 @@ def main():
 
     # 设置环境变量
     os.environ["FLASK_ENV"] = args.env
+
+    # 加载环境配置
+    load_env_files()
 
     # 初始化配置
     AppConfig.init_app(app)

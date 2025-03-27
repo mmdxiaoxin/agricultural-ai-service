@@ -92,9 +92,6 @@ class Config:
     @classmethod
     def init_app(cls, app):
         """初始化应用配置"""
-        # 加载环境配置
-        load_env_files()
-
         # 创建必要的目录
         cls._create_directories()
 
