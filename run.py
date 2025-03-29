@@ -4,19 +4,7 @@ import multiprocessing
 import psutil
 from config import AppConfig
 from app import app, celery
-from common.models.model_manager import ModelManager
-
-
-def init_models():
-    """初始化模型管理器"""
-    try:
-        # 创建ModelManager实例，这会触发模型加载
-        model_manager = ModelManager()
-        print("模型初始化成功")
-        return model_manager
-    except Exception as e:
-        print(f"模型初始化失败: {str(e)}")
-        raise
+from common.init import initializer
 
 
 def get_server_config():
@@ -58,8 +46,8 @@ def main():
     # 初始化配置
     AppConfig.init_app(app)
 
-    # 初始化模型
-    model_manager = init_models()
+    # 初始化所有服务组件
+    initializer.init_all()
 
     if args.mode == "web":
         # 获取服务器配置
