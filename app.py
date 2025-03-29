@@ -8,7 +8,6 @@ from config import AppConfig
 from modules import modules
 from common.utils.response import ApiResponse
 from common.utils.redis_utils import RedisClient
-from celery_app import create_celery_app
 from common.utils.error_handler import error_handler
 from common.utils.logger import log_manager
 
@@ -16,11 +15,7 @@ from common.utils.logger import log_manager
 logger = log_manager.get_logger(__name__)
 
 app = Flask(__name__)
-AppConfig.init_app(app)
 cors = CORS(app)
-
-# 创建Celery实例
-celery = create_celery_app(app)
 
 
 # 请求超时装饰器
