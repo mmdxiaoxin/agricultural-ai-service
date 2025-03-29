@@ -10,6 +10,11 @@ class Config:
         f"redis://{AppConfig.REDIS_HOST}:{AppConfig.REDIS_PORT}/{AppConfig.REDIS_DB}"
     )
 
+    # 连接重试配置
+    broker_connection_retry = True
+    broker_connection_retry_on_startup = True
+    broker_connection_max_retries = 10
+
     # 任务配置
     task_serializer = "json"
     result_serializer = "json"
