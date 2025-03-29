@@ -15,6 +15,12 @@ class Config:
     broker_connection_retry_on_startup = True
     broker_connection_max_retries = 10
 
+    # 日志配置
+    worker_log_format = "[%(asctime)s: %(levelname)s/%(processName)s] %(message)s"
+    worker_task_log_format = "[%(asctime)s: %(levelname)s/%(processName)s] [%(task_name)s(%(task_id)s)] %(message)s"
+    worker_redirect_stdouts = True
+    worker_redirect_stdouts_level = "WARNING"
+
     # 任务配置
     task_serializer = "json"
     result_serializer = "json"

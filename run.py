@@ -84,7 +84,7 @@ def main():
 
         argv = [
             "worker",
-            "--loglevel=INFO",
+            "--loglevel=INFO",  # 只输出INFO级别日志 # WARNING则只输出警告和错误
             "--pool=solo",  # Windows下使用solo池
             f"--concurrency={concurrency}",  # 动态设置并发worker数
             "--hostname=worker@%h",  # worker主机名

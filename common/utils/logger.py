@@ -58,6 +58,12 @@ class LogManager:
         logging.getLogger("waitress").setLevel(logging.WARNING)
         logging.getLogger("waitress.queue").setLevel(logging.WARNING)
         logging.getLogger("celery").setLevel(logging.WARNING)
+        logging.getLogger("celery.task").setLevel(logging.WARNING)
+        logging.getLogger("celery.worker").setLevel(logging.WARNING)
+        logging.getLogger("celery.app").setLevel(logging.WARNING)
+        logging.getLogger("celery.app.trace").setLevel(logging.WARNING)
+        logging.getLogger("celery.app.task").setLevel(logging.WARNING)
+        logging.getLogger("celery.app.task.trace").setLevel(logging.WARNING)
 
         logging.info("日志系统初始化完成")
 
