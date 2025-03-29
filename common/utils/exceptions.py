@@ -60,6 +60,41 @@ class NotFoundError(BaseError):
         super().__init__(message=message, code=404)
 
 
+class MethodNotAllowedError(BaseError):
+    """方法不允许错误"""
+
+    def __init__(self, message: str = "方法不允许"):
+        super().__init__(message=message, code=405)
+
+
+class ConflictError(BaseError):
+    """资源冲突错误"""
+
+    def __init__(self, message: str = "资源冲突"):
+        super().__init__(message=message, code=409)
+
+
+class GoneError(BaseError):
+    """资源已不存在错误"""
+
+    def __init__(self, message: str = "资源已不存在"):
+        super().__init__(message=message, code=410)
+
+
+class UnsupportedMediaTypeError(BaseError):
+    """不支持的媒体类型错误"""
+
+    def __init__(self, message: str = "不支持的媒体类型"):
+        super().__init__(message=message, code=415)
+
+
+class UnprocessableEntityError(BaseError):
+    """无法处理的实体错误"""
+
+    def __init__(self, message: str = "无法处理的实体"):
+        super().__init__(message=message, code=422)
+
+
 class FileTooLargeError(BaseError):
     """文件过大错误"""
 
@@ -72,6 +107,97 @@ class TooManyRequestsError(BaseError):
 
     def __init__(self, message: str = "请求过于频繁"):
         super().__init__(message=message, code=429)
+
+
+class InternalError(BaseError):
+    """服务器内部错误"""
+
+    def __init__(self, message: str = "服务器内部错误"):
+        super().__init__(message=message, code=500)
+
+
+class NotImplementedError(BaseError):
+    """未实现错误"""
+
+    def __init__(self, message: str = "未实现"):
+        super().__init__(message=message, code=501)
+
+
+class BadGatewayError(BaseError):
+    """网关错误"""
+
+    def __init__(self, message: str = "网关错误"):
+        super().__init__(message=message, code=502)
+
+
+class ServiceUnavailableError(BaseError):
+    """服务暂时不可用错误"""
+
+    def __init__(self, message: str = "服务暂时不可用"):
+        super().__init__(message=message, code=503)
+
+
+class GatewayTimeoutError(BaseError):
+    """网关超时错误"""
+
+    def __init__(self, message: str = "网关超时"):
+        super().__init__(message=message, code=504)
+
+
+class HTTPVersionNotSupportedError(BaseError):
+    """不支持的HTTP版本错误"""
+
+    def __init__(self, message: str = "不支持的HTTP版本"):
+        super().__init__(message=message, code=505)
+
+
+class InsufficientStorageError(BaseError):
+    """存储空间不足错误"""
+
+    def __init__(self, message: str = "存储空间不足"):
+        super().__init__(message=message, code=507)
+
+
+class LoopDetectedError(BaseError):
+    """检测到循环错误"""
+
+    def __init__(self, message: str = "检测到循环"):
+        super().__init__(message=message, code=508)
+
+
+class BandwidthLimitExceededError(BaseError):
+    """超出带宽限制错误"""
+
+    def __init__(self, message: str = "超出带宽限制"):
+        super().__init__(message=message, code=509)
+
+
+class NotExtendedError(BaseError):
+    """需要扩展错误"""
+
+    def __init__(self, message: str = "需要扩展"):
+        super().__init__(message=message, code=510)
+
+
+class NetworkAuthenticationRequiredError(BaseError):
+    """需要网络认证错误"""
+
+    def __init__(self, message: str = "需要网络认证"):
+        super().__init__(message=message, code=511)
+
+
+class NetworkReadTimeoutError(BaseError):
+    """网络读取超时错误"""
+
+    def __init__(self, message: str = "网络读取超时"):
+        super().__init__(message=message, code=598)
+
+
+class NetworkConnectTimeoutError(BaseError):
+    """网络连接超时错误"""
+
+    def __init__(self, message: str = "网络连接超时"):
+        super().__init__(message=message, code=599)
 
 
 class ModelError(BaseError):

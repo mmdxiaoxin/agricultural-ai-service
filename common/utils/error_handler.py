@@ -5,6 +5,33 @@ from werkzeug.exceptions import HTTPException, RequestTimeout, RequestEntityTooL
 from flask import Flask
 from common.utils.response import ApiResponse
 from common.utils.logger import log_manager
+from common.utils.exceptions import (
+    BaseError,
+    ValidationError,
+    AuthenticationError,
+    AuthorizationError,
+    NotFoundError,
+    MethodNotAllowedError,
+    ConflictError,
+    GoneError,
+    UnsupportedMediaTypeError,
+    UnprocessableEntityError,
+    FileTooLargeError,
+    TooManyRequestsError,
+    InternalError,
+    NotImplementedError,
+    BadGatewayError,
+    ServiceUnavailableError,
+    GatewayTimeoutError,
+    HTTPVersionNotSupportedError,
+    InsufficientStorageError,
+    LoopDetectedError,
+    BandwidthLimitExceededError,
+    NotExtendedError,
+    NetworkAuthenticationRequiredError,
+    NetworkReadTimeoutError,
+    NetworkConnectTimeoutError,
+)
 from config import AppConfig
 
 logger = log_manager.get_logger(__name__)
@@ -29,24 +56,53 @@ class ErrorHandler:
     def _setup_error_handlers(self):
         """配置错误处理器"""
         # 配置HTTP错误处理器
-        http_handlers: Dict[int, Callable] = {
-            400: lambda e: ApiResponse.bad_request(str(e)),
-            401: lambda e: ApiResponse.unauthorized("未授权访问"),
-            403: lambda e: ApiResponse.forbidden("禁止访问"),
-            404: lambda e: ApiResponse.not_found("请求的资源不存在"),
-            413: lambda e: ApiResponse.file_too_large("文件大小超过限制"),
-            429: lambda e: ApiResponse.too_many_requests("请求过于频繁"),
-            500: lambda e: ApiResponse.internal_error("服务器内部错误"),
-            503: lambda e: ApiResponse.service_unavailable("服务暂时不可用"),
-            504: lambda e: ApiResponse.gateway_timeout("网关超时"),
-            505: lambda e: ApiResponse.http_version_not_supported("不支持的HTTP版本"),
-            507: lambda e: ApiResponse.insufficient_storage("存储空间不足"),
-            508: lambda e: ApiResponse.loop_detected("检测到循环"),
-            509: lambda e: ApiResponse.bandwidth_limit_exceeded("超出带宽限制"),
-            510: lambda e: ApiResponse.not_extended("需要扩展"),
-            511: lambda e: ApiResponse.network_authentication_required("需要网络认证"),
-            598: lambda e: ApiResponse.network_read_timeout("网络读取超时"),
-            599: lambda e: ApiResponse.network_connect_timeout("网络连接超时"),
+        http_handlers: Dict[Type[BaseError], Callable] = {
+            ValidationError: lambda e: ApiResponse.bad_request(str(e)),
+            AuthenticationError: lambda e: ApiResponse.unauthorized("未授权访问"),
+            AuthorizationError: lambda e: ApiResponse.forbidden("禁止访问"),
+            NotFoundError: lambda e: ApiResponse.not_found("请求的资源不存在"),
+            MethodNotAllowedError: lambda e: ApiResponse.method_not_allowed(
+                "方法不允许"
+            ),
+            ConflictError: lambda e: ApiResponse.conflict("资源冲突"),
+            GoneError: lambda e: ApiResponse.gone("资源已不存在"),
+            UnsupportedMediaTypeError: lambda e: ApiResponse.unsupported_media_type(
+                "不支持的媒体类型"
+            ),
+            UnprocessableEntityError: lambda e: ApiResponse.unprocessable_entity(
+                "无法处理的实体"
+            ),
+            FileTooLargeError: lambda e: ApiResponse.file_too_large("文件大小超过限制"),
+            TooManyRequestsError: lambda e: ApiResponse.too_many_requests(
+                "请求过于频繁"
+            ),
+            InternalError: lambda e: ApiResponse.internal_error("服务器内部错误"),
+            NotImplementedError: lambda e: ApiResponse.not_implemented("未实现"),
+            BadGatewayError: lambda e: ApiResponse.bad_gateway("网关错误"),
+            ServiceUnavailableError: lambda e: ApiResponse.service_unavailable(
+                "服务暂时不可用"
+            ),
+            GatewayTimeoutError: lambda e: ApiResponse.gateway_timeout("网关超时"),
+            HTTPVersionNotSupportedError: lambda e: ApiResponse.http_version_not_supported(
+                "不支持的HTTP版本"
+            ),
+            InsufficientStorageError: lambda e: ApiResponse.insufficient_storage(
+                "存储空间不足"
+            ),
+            LoopDetectedError: lambda e: ApiResponse.loop_detected("检测到循环"),
+            BandwidthLimitExceededError: lambda e: ApiResponse.bandwidth_limit_exceeded(
+                "超出带宽限制"
+            ),
+            NotExtendedError: lambda e: ApiResponse.not_extended("需要扩展"),
+            NetworkAuthenticationRequiredError: lambda e: ApiResponse.network_authentication_required(
+                "需要网络认证"
+            ),
+            NetworkReadTimeoutError: lambda e: ApiResponse.network_read_timeout(
+                "网络读取超时"
+            ),
+            NetworkConnectTimeoutError: lambda e: ApiResponse.network_connect_timeout(
+                "网络连接超时"
+            ),
         }
 
         # 配置特殊错误处理器
@@ -58,20 +114,17 @@ class ErrorHandler:
         }
 
         # 合并所有处理器
-        for code, handler in http_handlers.items():
-            self._error_handlers[code] = handler
+        for exc_type, handler in http_handlers.items():
+            self._error_handlers[exc_type] = handler
         for exc_type, handler in exception_handlers.items():
             self._error_handlers[exc_type] = handler
 
     def register_handlers(self, app: Flask):
         """注册错误处理器到Flask应用"""
         try:
-            # 注册HTTP错误处理器
-            for code, handler in self._error_handlers.items():
-                if isinstance(code, int):
-                    app.register_error_handler(code, handler)
-                else:
-                    app.register_error_handler(code, handler)
+            # 注册错误处理器
+            for exc_type, handler in self._error_handlers.items():
+                app.register_error_handler(exc_type, handler)
 
             # 注册通用错误处理器
             @app.errorhandler(Exception)
