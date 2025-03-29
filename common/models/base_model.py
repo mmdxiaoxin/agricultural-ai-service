@@ -2,8 +2,9 @@ from typing import Dict, List, Optional, Union, Any
 import torch
 from ultralytics import YOLO
 from pathlib import Path
+import numpy as np
+import cv2
 
-from common.utils.image_processing import ImageProcessor
 from common.utils.exceptions import ModelError
 from common.utils.logger import log_manager
 
@@ -24,6 +25,20 @@ DEFAULT_YOLO_PARAMS = {
     "agnostic_nms": False,  # 类别无关的NMS
     "max_det": 300,  # 最大检测框数量
 }
+
+
+def bytes_to_numpy(image_bytes: bytes) -> np.ndarray:
+    """将图片bytes转换为numpy数组
+
+    Args:
+        image_bytes: 图片二进制数据
+
+    Returns:
+        numpy数组格式的图片数据
+    """
+    nparr = np.frombuffer(image_bytes, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    return img
 
 
 class BaseYOLOModel:
@@ -98,16 +113,17 @@ class BaseYOLOModel:
                 for i in range(0, len(image_data), batch_size):
                     batch = image_data[i : i + batch_size]
                     logger.info(f"处理批次 {i//batch_size + 1}, 大小: {len(batch)}")
-                    processed_images = [ImageProcessor.preprocess(img) for img in batch]
-                    batch_results = self.model(processed_images, **predict_params)
+                    # 将bytes转换为numpy数组
+                    batch_images = [bytes_to_numpy(img) for img in batch]
+                    batch_results = self.model(batch_images, **predict_params)
                     results.extend(batch_results)
                 logger.info(f"批量处理完成，共 {len(results)} 个结果")
                 return results
             else:
                 # 单张图片处理
                 logger.info("开始单张图片处理...")
-                image = ImageProcessor.preprocess(image_data)
-                logger.info("图片预处理完成")
+                # 将bytes转换为numpy数组
+                image = bytes_to_numpy(image_data)
                 result = self.model(image, **predict_params)
                 logger.info("单张图片处理完成")
                 return result
