@@ -1,10 +1,11 @@
 import json
-import logging
 from typing import Any, Optional
 import redis
 from config.app_config import Config
+from common.utils.logger import log_manager
 
-logger = logging.getLogger(__name__)
+# 获取日志记录器
+logger = log_manager.get_logger(__name__)
 
 
 class RedisClient:

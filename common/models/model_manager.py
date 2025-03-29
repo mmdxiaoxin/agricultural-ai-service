@@ -1,15 +1,14 @@
-import logging
 from pathlib import Path
 from typing import Dict, Optional, Any
 import hashlib
-from datetime import datetime
 import threading
 
 from common.models.base_model import DetectYOLOModel, ClassifyYOLOModel
 from common.models.database import Database
-from common.utils.exceptions import ModelError
+from common.utils.logger import log_manager
 
-logger = logging.getLogger(__name__)
+# 获取日志记录器
+logger = log_manager.get_logger(__name__)
 
 
 class ModelManager:

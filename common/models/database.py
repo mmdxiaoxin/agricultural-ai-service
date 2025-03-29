@@ -1,12 +1,12 @@
 import sqlite3
 from pathlib import Path
 from typing import Dict, List, Optional, Any
-import logging
 from datetime import datetime
-
+from common.utils.logger import log_manager
 from config.app_config import Config
 
-logger = logging.getLogger(__name__)
+# 获取日志记录器
+logger = log_manager.get_logger(__name__)
 
 
 class Database:

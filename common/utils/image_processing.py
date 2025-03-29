@@ -1,12 +1,12 @@
 import io
-import logging
 from typing import Any
 
 from PIL import Image
 from common.utils.exceptions import ModelError
+from common.utils.logger import log_manager
 
-# 配置日志
-logger = logging.getLogger(__name__)
+# 获取日志记录器
+logger = log_manager.get_logger(__name__)
 
 
 class ImageProcessor:

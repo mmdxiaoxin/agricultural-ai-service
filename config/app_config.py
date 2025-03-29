@@ -2,7 +2,6 @@ import os
 from pathlib import Path
 from typing import Dict, Any
 from dotenv import load_dotenv
-import logging
 
 
 def load_env_files():
@@ -73,20 +72,6 @@ class Config:
 
         # 创建必要的目录
         cls._create_directories()
-
-        # 配置日志
-        logging.basicConfig(
-            level=cls.LOG_LEVEL,
-            format=cls.LOG_FORMAT,
-            handlers=[
-                logging.FileHandler(cls.LOG_FILE),
-                logging.StreamHandler(),
-            ],
-        )
-
-        # 设置waitress的日志级别
-        logging.getLogger("waitress").setLevel(logging.WARNING)
-        logging.getLogger("waitress.queue").setLevel(logging.WARNING)
 
         # 配置Flask应用
         app.config.from_object(cls)

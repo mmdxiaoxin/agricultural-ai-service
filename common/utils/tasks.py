@@ -1,8 +1,9 @@
-import logging
 from celery_app import celery
 from common.init import initializer
+from common.utils.logger import log_manager
 
-logger = logging.getLogger(__name__)
+# 获取日志记录器
+logger = log_manager.get_logger(__name__)
 
 
 @celery.task(name="tasks.detect", bind=True)

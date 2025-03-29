@@ -1,5 +1,3 @@
-import logging
-import shutil
 from flask import request
 from werkzeug.exceptions import RequestEntityTooLarge
 from pathlib import Path
@@ -11,8 +9,10 @@ from config.app_config import Config
 from common.utils.redis_utils import RedisClient
 from common.utils.tasks import detect_task, classify_task
 from common.init import initializer
+from common.utils.logger import log_manager
 
-logger = logging.getLogger(__name__)
+# 获取日志记录器
+logger = log_manager.get_logger(__name__)
 
 # 使用ServiceInitializer中的实例
 ai_service = initializer.ai_service
