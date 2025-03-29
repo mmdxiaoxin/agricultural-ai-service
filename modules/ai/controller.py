@@ -83,7 +83,7 @@ def get_detect_result_controller(task_id: str):
             return ApiResponse.success(
                 data={"task_id": task_id, "status": "pending", "message": "任务等待中"}
             )
-        elif task.state == "PROGRESS":
+        elif task.state in ["PROGRESS", "STARTED"]:
             return ApiResponse.success(
                 data={
                     "task_id": task_id,
@@ -107,7 +107,14 @@ def get_detect_result_controller(task_id: str):
         elif task.state == "FAILURE":
             return ApiResponse.internal_error(f"任务失败: {str(task.info)}")
         else:
-            return ApiResponse.internal_error(f"未知任务状态: {task.state}")
+            logger.warning(f"收到未知任务状态: {task.state}")
+            return ApiResponse.success(
+                data={
+                    "task_id": task_id,
+                    "status": "processing",
+                    "message": "任务处理中",
+                }
+            )
 
     except Exception as e:
         logger.error(f"获取任务结果失败: {str(e)}")
@@ -177,7 +184,7 @@ def get_classify_result_controller(task_id: str):
             return ApiResponse.success(
                 data={"task_id": task_id, "status": "pending", "message": "任务等待中"}
             )
-        elif task.state == "PROGRESS":
+        elif task.state in ["PROGRESS", "STARTED"]:
             return ApiResponse.success(
                 data={
                     "task_id": task_id,
@@ -201,7 +208,14 @@ def get_classify_result_controller(task_id: str):
         elif task.state == "FAILURE":
             return ApiResponse.internal_error(f"任务失败: {str(task.info)}")
         else:
-            return ApiResponse.internal_error(f"未知任务状态: {task.state}")
+            logger.warning(f"收到未知任务状态: {task.state}")
+            return ApiResponse.success(
+                data={
+                    "task_id": task_id,
+                    "status": "processing",
+                    "message": "任务处理中",
+                }
+            )
 
     except Exception as e:
         logger.error(f"获取任务结果失败: {str(e)}")
