@@ -47,15 +47,24 @@ class BaseYOLOModel:
             ModelError: 当模型加载失败时抛出
         """
         try:
+            logger.info(f"开始初始化YOLO模型，路径: {model_path}")
             self.model_path = Path(model_path)
             if not self.model_path.exists():
+                logger.error(f"模型文件不存在: {model_path}")
                 raise FileNotFoundError(f"模型文件不存在: {model_path}")
+            logger.info(f"模型文件存在，大小: {self.model_path.stat().st_size} 字节")
+
             self.params = params or DEFAULT_YOLO_PARAMS.copy()
+            logger.info(f"模型参数: {self.params}")
+
+            logger.info("开始加载YOLO模型...")
             self.model = YOLO(str(self.model_path))
             logger.info(f"成功加载模型: {model_path}")
+            logger.info(f"模型设备: {self.model.device}")
+            logger.info(f"模型任务类型: {self.model.task}")
 
         except Exception as e:
-            logger.error(f"模型加载失败: {str(e)}")
+            logger.error(f"模型加载失败: {str(e)}", exc_info=True)
             raise ModelError(f"模型加载失败: {str(e)}")
 
     def predict(
@@ -76,26 +85,35 @@ class BaseYOLOModel:
             ModelError: 当推理过程出错时抛出
         """
         try:
+            logger.info("开始模型推理...")
             # 合并默认参数和传入的参数
             predict_params = self.params.copy()
             predict_params.update(kwargs)
+            logger.info(f"推理参数: {predict_params}")
 
             if isinstance(image_data, list):
                 # 批量处理
+                logger.info("开始批量处理...")
                 results = []
                 for i in range(0, len(image_data), batch_size):
                     batch = image_data[i : i + batch_size]
+                    logger.info(f"处理批次 {i//batch_size + 1}, 大小: {len(batch)}")
                     processed_images = [ImageProcessor.preprocess(img) for img in batch]
                     batch_results = self.model(processed_images, **predict_params)
                     results.extend(batch_results)
+                logger.info(f"批量处理完成，共 {len(results)} 个结果")
                 return results
             else:
                 # 单张图片处理
+                logger.info("开始单张图片处理...")
                 image = ImageProcessor.preprocess(image_data)
-                return self.model(image, **predict_params)
+                logger.info("图片预处理完成")
+                result = self.model(image, **predict_params)
+                logger.info("单张图片处理完成")
+                return result
 
         except Exception as e:
-            logger.error(f"推理过程出错: {str(e)}")
+            logger.error(f"推理过程出错: {str(e)}", exc_info=True)
             raise ModelError(f"推理过程出错: {str(e)}")
 
     def update_params(self, **kwargs) -> None:
@@ -201,8 +219,24 @@ class DetectYOLOModel(BaseYOLOModel):
         Returns:
             解析后的检测结果列表
         """
-        results = self.predict(image_data, batch_size)
-        return self._parse_detect_results(results)
+        try:
+            logger.info("开始目标检测...")
+            logger.info(f"输入数据类型: {type(image_data)}")
+            if isinstance(image_data, list):
+                logger.info(f"批量处理，图片数量: {len(image_data)}")
+            else:
+                logger.info(f"单张图片处理，大小: {len(image_data)} 字节")
+
+            results = self.predict(image_data, batch_size)
+            logger.info(f"推理完成，结果类型: {type(results)}")
+
+            parsed_results = self._parse_detect_results(results)
+            logger.info(f"解析完成，检测到 {len(parsed_results)} 个目标")
+            return parsed_results
+
+        except Exception as e:
+            logger.error(f"目标检测失败: {str(e)}", exc_info=True)
+            raise ModelError(f"目标检测失败: {str(e)}")
 
     def _parse_detect_results(self, results: List[Any]) -> List[Dict[str, Any]]:
         """

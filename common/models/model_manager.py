@@ -57,12 +57,17 @@ class ModelManager:
             try:
                 # 获取所有模型元数据
                 models = self._db.get_all_models()
+                logger.info(f"从数据库获取到的模型列表: {models}")
 
                 # 加载检测模型
                 for version in models["detect"]:
                     try:
+                        logger.info(f"开始加载检测模型: {version}")
                         model_data = self._db.get_model(version, "detect")
+                        logger.info(f"获取到的模型数据: {model_data}")
+
                         if model_data and Path(model_data["file_path"]).exists():
+                            logger.info(f"模型文件存在: {model_data['file_path']}")
                             # 设置YOLOv8模型的输出控制
                             model_data["parameters"] = model_data.get("parameters", {})
                             model_data["parameters"].update(
@@ -72,20 +77,31 @@ class ModelManager:
                                     "save": False,  # 禁用保存
                                 }
                             )
+                            logger.info(
+                                f"准备加载模型，参数: {model_data['parameters']}"
+                            )
                             self._detect_models[version] = DetectYOLOModel(
                                 model_data["file_path"], model_data["parameters"]
                             )
                             logger.info(f"成功加载检测模型: {version}")
                         else:
-                            logger.warning(f"检测模型文件不存在: {version}")
+                            logger.warning(
+                                f"检测模型文件不存在: {version}, 路径: {model_data['file_path'] if model_data else 'None'}"
+                            )
                     except Exception as e:
-                        logger.error(f"加载检测模型 {version} 失败: {str(e)}")
+                        logger.error(
+                            f"加载检测模型 {version} 失败: {str(e)}", exc_info=True
+                        )
 
                 # 加载分类模型
                 for version in models["classify"]:
                     try:
+                        logger.info(f"开始加载分类模型: {version}")
                         model_data = self._db.get_model(version, "classify")
+                        logger.info(f"获取到的模型数据: {model_data}")
+
                         if model_data and Path(model_data["file_path"]).exists():
+                            logger.info(f"模型文件存在: {model_data['file_path']}")
                             model_data["parameters"] = model_data.get("parameters", {})
                             model_data["parameters"].update(
                                 {
@@ -94,14 +110,21 @@ class ModelManager:
                                     "save": False,  # 禁用保存
                                 }
                             )
+                            logger.info(
+                                f"准备加载模型，参数: {model_data['parameters']}"
+                            )
                             self._classify_models[version] = ClassifyYOLOModel(
                                 model_data["file_path"], model_data["parameters"]
                             )
                             logger.info(f"成功加载分类模型: {version}")
                         else:
-                            logger.warning(f"分类模型文件不存在: {version}")
+                            logger.warning(
+                                f"分类模型文件不存在: {version}, 路径: {model_data['file_path'] if model_data else 'None'}"
+                            )
                     except Exception as e:
-                        logger.error(f"加载分类模型 {version} 失败: {str(e)}")
+                        logger.error(
+                            f"加载分类模型 {version} 失败: {str(e)}", exc_info=True
+                        )
 
                 if not self._detect_models and not self._classify_models:
                     logger.warning("未找到任何模型文件")
@@ -112,7 +135,7 @@ class ModelManager:
                     )
 
             except Exception as e:
-                logger.error(f"模型加载过程发生错误: {str(e)}")
+                logger.error(f"模型加载过程发生错误: {str(e)}", exc_info=True)
                 raise
 
     def add_model(

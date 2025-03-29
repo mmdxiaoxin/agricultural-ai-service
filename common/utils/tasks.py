@@ -2,11 +2,15 @@ import logging
 from celery_app import celery
 from common.utils.redis_utils import RedisClient
 from services.ai_service import AIService
+from common.models.model_manager import ModelManager
 
 logger = logging.getLogger(__name__)
 
 # 创建AI服务实例
 ai_service = AIService()
+
+# 确保模型已加载
+model_manager = ModelManager()
 
 
 @celery.task(name="tasks.detect", bind=True)
