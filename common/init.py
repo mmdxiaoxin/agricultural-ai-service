@@ -2,6 +2,7 @@ import logging
 from typing import Optional
 
 from common.models.model_manager import ModelManager
+from common.models.database import Database
 from common.utils.redis_utils import RedisClient
 from services.ai_service import AIService
 from config import AppConfig
@@ -25,12 +26,16 @@ class ServiceInitializer:
             self._model_manager: Optional[ModelManager] = None
             self._ai_service: Optional[AIService] = None
             self._redis_client: Optional[RedisClient] = None
+            self._database: Optional[Database] = None
 
     def init_all(self):
         """初始化所有服务组件"""
         try:
             # 初始化Redis客户端
             self._init_redis()
+
+            # 初始化数据库
+            self._init_database()
 
             # 初始化模型管理器
             self._init_model_manager()
@@ -51,6 +56,15 @@ class ServiceInitializer:
             logger.info("Redis客户端初始化成功")
         except Exception as e:
             logger.error(f"Redis客户端初始化失败: {str(e)}")
+            raise
+
+    def _init_database(self):
+        """初始化数据库"""
+        try:
+            self._database = Database()
+            logger.info("数据库初始化成功")
+        except Exception as e:
+            logger.error(f"数据库初始化失败: {str(e)}")
             raise
 
     def _init_model_manager(self):
@@ -94,6 +108,14 @@ class ServiceInitializer:
             self._init_redis()
         assert self._redis_client is not None
         return self._redis_client
+
+    @property
+    def database(self) -> Database:
+        """获取数据库实例"""
+        if self._database is None:
+            self._init_database()
+        assert self._database is not None
+        return self._database
 
 
 # 创建全局初始化器实例

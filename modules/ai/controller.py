@@ -8,16 +8,15 @@ import hashlib
 from services.ai_service import AIService
 from common.utils.response import ApiResponse, ResponseCode
 from config.app_config import Config
-from common.models.database import Database
 from common.utils.redis_utils import RedisClient
 from common.utils.tasks import detect_task, classify_task
+from common.init import initializer
 
 logger = logging.getLogger(__name__)
 
-# 创建AI服务实例
-ai_service = AIService()
-# 创建数据库实例
-db = Database()
+# 使用ServiceInitializer中的实例
+ai_service = initializer.ai_service
+db = initializer.database
 
 
 def detect_controller(version: str):
