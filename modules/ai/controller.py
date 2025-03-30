@@ -10,6 +10,7 @@ from common.utils.redis_utils import RedisClient
 from common.utils.tasks import detect_task, classify_task
 from common.init import initializer
 from common.utils.logger import log_manager
+from common.enum.task_status import TaskStatus
 
 # 获取日志记录器
 logger = log_manager.get_logger(__name__)
@@ -57,7 +58,7 @@ def detect_controller(version: str):
         return ApiResponse.success(
             data={
                 "task_id": task.id,
-                "status": "processing",
+                "status": TaskStatus.PROCESSING.value,
                 "message": "任务已提交，请稍后查询结果",
             }
         )
@@ -77,20 +78,25 @@ def get_detect_result_controller(task_id: str):
     try:
         # 获取任务状态
         task = detect_task.AsyncResult(task_id)
+        status = TaskStatus.from_celery_state(task.state)
 
-        if task.state == "PENDING":
-            return ApiResponse.success(
-                data={"task_id": task_id, "status": "pending", "message": "任务等待中"}
-            )
-        elif task.state in ["PROGRESS", "STARTED"]:
+        if status == TaskStatus.PENDING:
             return ApiResponse.success(
                 data={
                     "task_id": task_id,
-                    "status": "processing",
+                    "status": status.value,
+                    "message": "任务等待中",
+                }
+            )
+        elif status == TaskStatus.PROCESSING:
+            return ApiResponse.success(
+                data={
+                    "task_id": task_id,
+                    "status": status.value,
                     "message": "任务处理中",
                 }
             )
-        elif task.state == "SUCCESS":
+        elif status == TaskStatus.SUCCESS:
             # 从缓存获取结果，直接使用task_id
             cache_key = f"detect:{task_id}"
             result = RedisClient.get_cache(cache_key)
@@ -98,19 +104,19 @@ def get_detect_result_controller(task_id: str):
                 return ApiResponse.success(
                     data={
                         "task_id": task_id,
-                        "status": "success",
+                        "status": status.value,
                         "predictions": result,
                     }
                 )
             return ApiResponse.not_found("结果已过期")
-        elif task.state == "FAILURE":
+        elif status == TaskStatus.FAILURE:
             return ApiResponse.internal_error(f"任务失败: {str(task.info)}")
         else:
             logger.warning(f"收到未知任务状态: {task.state}")
             return ApiResponse.success(
                 data={
                     "task_id": task_id,
-                    "status": "processing",
+                    "status": TaskStatus.PROCESSING.value,
                     "message": "任务处理中",
                 }
             )
@@ -158,7 +164,7 @@ def classify_controller(version: str):
         return ApiResponse.success(
             data={
                 "task_id": task.id,
-                "status": "processing",
+                "status": TaskStatus.PROCESSING.value,
                 "message": "任务已提交，请稍后查询结果",
             }
         )
@@ -178,20 +184,25 @@ def get_classify_result_controller(task_id: str):
     try:
         # 获取任务状态
         task = classify_task.AsyncResult(task_id)
+        status = TaskStatus.from_celery_state(task.state)
 
-        if task.state == "PENDING":
-            return ApiResponse.success(
-                data={"task_id": task_id, "status": "pending", "message": "任务等待中"}
-            )
-        elif task.state in ["PROGRESS", "STARTED"]:
+        if status == TaskStatus.PENDING:
             return ApiResponse.success(
                 data={
                     "task_id": task_id,
-                    "status": "processing",
+                    "status": status.value,
+                    "message": "任务等待中",
+                }
+            )
+        elif status == TaskStatus.PROCESSING:
+            return ApiResponse.success(
+                data={
+                    "task_id": task_id,
+                    "status": status.value,
                     "message": "任务处理中",
                 }
             )
-        elif task.state == "SUCCESS":
+        elif status == TaskStatus.SUCCESS:
             # 从缓存获取结果，直接使用task_id
             cache_key = f"classify:{task_id}"
             result = RedisClient.get_cache(cache_key)
@@ -199,19 +210,19 @@ def get_classify_result_controller(task_id: str):
                 return ApiResponse.success(
                     data={
                         "task_id": task_id,
-                        "status": "success",
+                        "status": status.value,
                         "predictions": result,
                     }
                 )
             return ApiResponse.not_found("结果已过期")
-        elif task.state == "FAILURE":
+        elif status == TaskStatus.FAILURE:
             return ApiResponse.internal_error(f"任务失败: {str(task.info)}")
         else:
             logger.warning(f"收到未知任务状态: {task.state}")
             return ApiResponse.success(
                 data={
                     "task_id": task_id,
-                    "status": "processing",
+                    "status": TaskStatus.PROCESSING.value,
                     "message": "任务处理中",
                 }
             )
