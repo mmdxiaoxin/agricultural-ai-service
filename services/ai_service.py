@@ -44,7 +44,7 @@ class AIService:
                 logger.error(f"未找到检测模型版本: {version}")
                 return None
             results = model.detect(image_data)
-            if not results or not isinstance(results, list):
+            if not isinstance(results, list):
                 logger.error("检测结果格式错误")
                 return None
             return results
