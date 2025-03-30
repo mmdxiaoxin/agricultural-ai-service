@@ -94,7 +94,7 @@ def get_detect_result_controller(task_id: str):
             # 从缓存获取结果，直接使用task_id
             cache_key = f"detect:{task_id}"
             result = RedisClient.get_cache(cache_key)
-            if result:
+            if result is not None:
                 return ApiResponse.success(
                     data={
                         "task_id": task_id,
@@ -195,7 +195,7 @@ def get_classify_result_controller(task_id: str):
             # 从缓存获取结果，直接使用task_id
             cache_key = f"classify:{task_id}"
             result = RedisClient.get_cache(cache_key)
-            if result:
+            if result is not None:
                 return ApiResponse.success(
                     data={
                         "task_id": task_id,
