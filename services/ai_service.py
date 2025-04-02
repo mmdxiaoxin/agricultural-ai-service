@@ -29,7 +29,7 @@ class AIService:
 
     def detect(self, version: str, image_data: bytes) -> Optional[List[Dict[str, Any]]]:
         """
-        使用指定版本的检测模型进行推理
+        使用指定版本的YOLO检测模型进行推理
 
         Args:
             version: 模型版本
@@ -39,9 +39,9 @@ class AIService:
             推理结果列表
         """
         try:
-            model = self.model_manager.get_detect_model(version)
+            model = self.model_manager.get_yolo_model(version, "detect")
             if not model:
-                logger.error(f"未找到检测模型版本: {version}")
+                logger.error(f"未找到YOLO检测模型版本: {version}")
                 return None
             results = model.detect(image_data)
             if not isinstance(results, list):
@@ -54,22 +54,27 @@ class AIService:
             return None
 
     def classify(
-        self, version: str, image_data: bytes
+        self, version: str, image_data: bytes, model_type: str = "yolo"
     ) -> Optional[List[Dict[str, Any]]]:
         """
-        使用指定版本的分类模型进行推理
+        使用指定版本的模型进行分类推理
 
         Args:
             version: 模型版本
             image_data: 图片数据
+            model_type: 模型类型，可选 "yolo" 或 "resnet"
 
         Returns:
             推理结果列表
         """
         try:
-            model = self.model_manager.get_classify_model(version)
+            if model_type == "yolo":
+                model = self.model_manager.get_yolo_model(version, "classify")
+            else:
+                model = self.model_manager.get_resnet_model(version)
+
             if not model:
-                logger.error(f"未找到分类模型版本: {version}")
+                logger.error(f"未找到{model_type}分类模型版本: {version}")
                 return None
             results = model.classify(image_data)
             if not results or not isinstance(results, list):

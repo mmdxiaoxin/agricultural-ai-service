@@ -4,6 +4,9 @@ from ultralytics import YOLO
 from pathlib import Path
 import numpy as np
 import cv2
+from PIL import Image
+import io
+import torchvision.transforms as transforms
 
 from common.utils.exceptions import ModelError
 from common.utils.logger import log_manager
@@ -690,8 +693,8 @@ class ResNetModel:
             else:
                 # 单张图片处理
                 logger.info("处理单张图片...")
-                img = Image.open(io.BytesIO(image_data)).convert("RGB")
-                img_tensor = preprocess(img)
+                img: Image.Image = Image.open(io.BytesIO(image_data)).convert("RGB")
+                img_tensor = torch.as_tensor(preprocess(img), dtype=torch.float32)
                 img_tensor = torch.unsqueeze(img_tensor, 0).to(predict_params["device"])
 
                 # 如果使用半精度

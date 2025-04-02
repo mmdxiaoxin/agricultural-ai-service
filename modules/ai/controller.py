@@ -154,11 +154,16 @@ def classify_controller(version: str):
         if not Config.validate_file_extension(image_file.filename):
             return ApiResponse.bad_request("不支持的文件类型，仅支持PNG和JPG格式")
 
+        # 获取模型类型（可选，默认为yolo）
+        model_type = request.form.get("model_type", "yolo")
+        if model_type not in ["yolo", "resnet"]:
+            return ApiResponse.bad_request("不支持的模型类型，仅支持yolo和resnet")
+
         # 读取图片数据
         image_data = image_file.read()
 
         # 提交异步任务
-        task = classify_task.delay(version, image_data)
+        task = classify_task.delay(version, image_data, model_type)
 
         # 返回任务ID
         return ApiResponse.success(
@@ -257,11 +262,20 @@ def upload_model_controller():
     """
     上传模型文件
     需要在form-data中提供以下参数：
+    - name: 模型名称（如yolo_v8, resnet50）
     - version: 模型版本
-    - model_type: 模型类型（detect/classify）
+    - task_type: 任务类型（detect/classify）
     - model: 模型文件
+    - description: 模型描述（可选）
     """
     try:
+        # 获取并验证模型名称
+        name = request.form.get("name")
+        if not name:
+            return ApiResponse.bad_request("未提供模型名称")
+        if not isinstance(name, str) or not name.strip():
+            return ApiResponse.bad_request("模型名称格式不正确")
+
         # 获取并验证版本
         version = request.form.get("version")
         if not version:
@@ -269,14 +283,12 @@ def upload_model_controller():
         if not isinstance(version, str) or not version.strip():
             return ApiResponse.bad_request("模型版本格式不正确")
 
-        # 获取并验证模型类型
-        model_type = request.form.get("model_type")
-        if not model_type:
-            return ApiResponse.bad_request("未提供模型类型")
-        if not Config.validate_model_type(model_type):
-            return ApiResponse.bad_request(
-                f"不支持的模型类型: {model_type}，仅支持 {Config.MODEL_TYPES}"
-            )
+        # 获取并验证任务类型
+        task_type = request.form.get("task_type")
+        if not task_type:
+            return ApiResponse.bad_request("未提供任务类型")
+        if task_type not in ["detect", "classify"]:
+            return ApiResponse.bad_request("不支持的任务类型，仅支持detect和classify")
 
         # 检查请求大小
         if request.content_length and not Config.validate_model_size(
@@ -301,7 +313,7 @@ def upload_model_controller():
             )
 
         # 获取保存路径
-        save_path = Config.get_model_path(version, model_type)
+        save_path = Config.get_model_path(name, version)
 
         # 保存文件
         try:
@@ -319,38 +331,34 @@ def upload_model_controller():
         # 设置模型参数
         parameters = {
             "conf": 0.25,
-            "iou": 0.5 if model_type == "detect" else None,
+            "iou": 0.5 if task_type == "detect" else None,
         }
 
+        # 获取模型描述
+        description = request.form.get("description", "")
+
         # 更新数据库中的模型配置
-        if not db.add_model(
+        if not ai_service.model_manager.add_model(
+            name=name,
             version=version,
-            model_type=model_type,
-            file_path=str(save_path),
-            file_size=file_size,
-            file_hash=file_hash,
+            task_type=task_type,
+            file_path=save_path,
             parameters=parameters,
+            description=description,
         ):
             # 如果数据库更新失败，删除已保存的文件
             if save_path.exists():
                 save_path.unlink()
             return ApiResponse.internal_error("保存模型配置失败")
 
-        # 重新加载模型
-        try:
-            ai_service.model_manager._load_models()
-            logger.info(f"模型已重新加载: {version} ({model_type})")
-        except Exception as e:
-            logger.error(f"重新加载模型失败: {str(e)}")
-            # 如果重新加载失败，删除已保存的文件和数据库记录
-            if save_path.exists():
-                save_path.unlink()
-            db.delete_model(version, model_type)
-            return ApiResponse.internal_error("模型加载失败")
-
         return ApiResponse.success(
-            message=f"模型上传成功: {version} ({model_type})",
-            data={"version": version, "type": model_type, "path": str(save_path)},
+            message=f"模型上传成功: {name}-{version}-{task_type}",
+            data={
+                "name": name,
+                "version": version,
+                "task_type": task_type,
+                "path": str(save_path),
+            },
         )
 
     except Exception as e:
@@ -367,7 +375,7 @@ def update_model_controller(model_id: int):
     """
     try:
         # 获取模型信息
-        model_data = db.get_model_by_id(model_id)
+        model_data = ai_service.model_manager.get_model_by_id(model_id)
         if not model_data:
             return ApiResponse.not_found(f"未找到ID为 {model_id} 的模型")
 
@@ -385,7 +393,7 @@ def update_model_controller(model_id: int):
 
         iou = request.form.get("iou")
         if iou is not None:
-            if model_data["model_type"] != "detect":
+            if model_data["task_type"] != "detect":
                 return ApiResponse.bad_request("IoU阈值仅用于检测模型")
             try:
                 iou = float(iou)
@@ -399,18 +407,12 @@ def update_model_controller(model_id: int):
             return ApiResponse.bad_request("未提供任何要更新的参数")
 
         # 更新模型参数
-        if not db.update_model_parameters(model_id, parameters):
+        if not ai_service.model_manager.update_model_parameters(model_id, parameters):
             return ApiResponse.internal_error("更新模型参数失败")
 
-        # 重新加载模型
-        try:
-            ai_service.model_manager._load_models()
-            # 清除缓存
-            RedisClient.delete_cache(Config.MODEL_VERSIONS_CACHE_KEY)
-            logger.info(f"模型已重新加载: ID={model_id}")
-        except Exception as e:
-            logger.error(f"重新加载模型失败: {str(e)}")
-            return ApiResponse.internal_error("模型加载失败")
+        # 清除缓存
+        RedisClient.delete_cache(Config.MODEL_VERSIONS_CACHE_KEY)
+        logger.info(f"模型参数更新成功: ID={model_id}")
 
         return ApiResponse.success(
             message=f"模型参数更新成功: ID={model_id}",
@@ -428,7 +430,7 @@ def delete_model_controller(model_id: int):
     """
     try:
         # 获取模型信息
-        model_data = db.get_model_by_id(model_id)
+        model_data = ai_service.model_manager.get_model_by_id(model_id)
         if not model_data:
             return ApiResponse.not_found(f"未找到ID为 {model_id} 的模型")
 
@@ -443,18 +445,12 @@ def delete_model_controller(model_id: int):
                 return ApiResponse.internal_error("删除模型文件失败")
 
         # 删除数据库记录
-        if not db.delete_model_by_id(model_id):
+        if not ai_service.model_manager.delete_model_by_id(model_id):
             return ApiResponse.internal_error("删除模型记录失败")
 
-        # 重新加载模型
-        try:
-            ai_service.model_manager._load_models()
-            # 清除缓存
-            RedisClient.delete_cache(Config.MODEL_VERSIONS_CACHE_KEY)
-            logger.info(f"模型已重新加载: ID={model_id}")
-        except Exception as e:
-            logger.error(f"重新加载模型失败: {str(e)}")
-            return ApiResponse.internal_error("模型加载失败")
+        # 清除缓存
+        RedisClient.delete_cache(Config.MODEL_VERSIONS_CACHE_KEY)
+        logger.info(f"模型删除成功: ID={model_id}")
 
         return ApiResponse.success(
             message=f"模型删除成功: ID={model_id}",

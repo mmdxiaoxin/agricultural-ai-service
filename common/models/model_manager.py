@@ -219,3 +219,17 @@ class ModelManager:
         except Exception as e:
             logger.error(f"删除模型失败: {str(e)}")
             return False
+
+    def get_model_by_id(self, model_id: int) -> Optional[Dict[str, Any]]:
+        """根据ID获取模型信息"""
+        return self._db.get_model_by_id(model_id)
+
+    def update_model_parameters(
+        self, model_id: int, parameters: Dict[str, Any]
+    ) -> bool:
+        """更新模型参数"""
+        return self._db.update_model_parameters(model_id, parameters)
+
+    def delete_model_by_id(self, model_id: int) -> bool:
+        """根据ID删除模型"""
+        return self._db.delete_model_by_id(model_id)

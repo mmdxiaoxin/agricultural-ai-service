@@ -322,7 +322,7 @@ class Database:
             return False
 
     def update_model_parameters(
-        self, name: str, version: str, parameters: Dict[str, Any]
+        self, model_id: int, parameters: Dict[str, Any]
     ) -> bool:
         """更新模型参数"""
         try:
@@ -332,17 +332,90 @@ class Database:
                     """
                     UPDATE versions 
                     SET parameters = ?, updated_at = ?
-                    WHERE id = (
-                        SELECT v.id FROM versions v
-                        JOIN models m ON v.model_id = m.id
-                        WHERE m.name = ? AND v.version = ?
-                    )
+                    WHERE model_id = ?
                     """,
-                    (str(parameters), datetime.now(), name, version),
+                    (str(parameters), datetime.now(), model_id),
                 )
                 conn.commit()
-                logger.info(f"成功更新模型参数: {name}-{version}")
+                logger.info(f"成功更新模型参数: ID={model_id}")
                 return True
         except Exception as e:
             logger.error(f"更新模型参数失败: {str(e)}")
             return False
+
+    def delete_model_by_id(self, model_id: int) -> bool:
+        """根据ID删除模型"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                # 1. 获取版本ID
+                cursor.execute(
+                    """
+                    SELECT v.id FROM versions v
+                    WHERE v.model_id = ?
+                    """,
+                    (model_id,),
+                )
+                version_ids = [row[0] for row in cursor.fetchall()]
+
+                # 2. 删除版本-任务关联
+                if version_ids:
+                    cursor.execute(
+                        "DELETE FROM version_tasks WHERE version_id IN ({})".format(
+                            ",".join("?" * len(version_ids))
+                        ),
+                        version_ids,
+                    )
+
+                # 3. 删除版本信息
+                cursor.execute("DELETE FROM versions WHERE model_id = ?", (model_id,))
+
+                # 4. 删除模型信息
+                cursor.execute("DELETE FROM models WHERE id = ?", (model_id,))
+
+                conn.commit()
+                logger.info(f"成功删除模型: ID={model_id}")
+                return True
+        except Exception as e:
+            logger.error(f"删除模型失败: {str(e)}")
+            return False
+
+    def get_model_by_id(self, model_id: int) -> Optional[Dict[str, Any]]:
+        """根据ID获取模型信息"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT m.*, v.*, GROUP_CONCAT(t.name) as task_types
+                    FROM models m
+                    JOIN versions v ON m.id = v.model_id
+                    LEFT JOIN version_tasks vt ON v.id = vt.version_id
+                    LEFT JOIN tasks t ON vt.task_id = t.id
+                    WHERE m.id = ?
+                    GROUP BY m.id, v.id
+                    """,
+                    (model_id,),
+                )
+                row = cursor.fetchone()
+                if row:
+                    return {
+                        "model_id": row[0],
+                        "name": row[1],
+                        "model_type": row[2],
+                        "description": row[3],
+                        "version_id": row[6],
+                        "version": row[8],
+                        "file_path": row[9],
+                        "file_size": row[10],
+                        "file_hash": row[11],
+                        "parameters": eval(row[12]) if row[12] else None,
+                        "task_types": row[17].split(",") if row[17] else [],
+                        "created_at": row[13],
+                        "updated_at": row[14],
+                    }
+                return None
+        except Exception as e:
+            logger.error(f"获取模型信息失败: {str(e)}")
+            return None

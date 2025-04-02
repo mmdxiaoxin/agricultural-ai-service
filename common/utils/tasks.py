@@ -14,9 +14,9 @@ def detect_task(self, version: str, image_data: bytes):
         result = initializer.ai_service.detect(version, image_data)
         if result is None:
             # 检查模型是否存在
-            model = initializer.model_manager.get_detect_model(version)
+            model = initializer.model_manager.get_yolo_model(version, "detect")
             if model is None:
-                raise Exception(f"未找到检测模型版本: {version}")
+                raise Exception(f"未找到YOLO检测模型版本: {version}")
             else:
                 raise Exception("目标检测推理失败，请检查模型状态或图片数据")
 
@@ -31,16 +31,20 @@ def detect_task(self, version: str, image_data: bytes):
 
 
 @celery.task(name="tasks.classify", bind=True)
-def classify_task(self, version: str, image_data: bytes):
+def classify_task(self, version: str, image_data: bytes, model_type: str = "yolo"):
     """图像分类任务"""
     try:
         # 调用服务层进行推理
-        result = initializer.ai_service.classify(version, image_data)
+        result = initializer.ai_service.classify(version, image_data, model_type)
         if result is None:
             # 检查模型是否存在
-            model = initializer.model_manager.get_classify_model(version)
+            if model_type == "yolo":
+                model = initializer.model_manager.get_yolo_model(version, "classify")
+            else:
+                model = initializer.model_manager.get_resnet_model(version)
+
             if model is None:
-                raise Exception(f"未找到分类模型版本: {version}")
+                raise Exception(f"未找到{model_type}分类模型版本: {version}")
             else:
                 raise Exception("图像分类推理失败，请检查模型状态或图片数据")
 
