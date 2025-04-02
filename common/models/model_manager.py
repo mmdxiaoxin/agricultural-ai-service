@@ -27,8 +27,10 @@ class ModelManager:
     def __init__(self):
         # 防止重复初始化
         if not hasattr(self, "_initialized"):
-            self._detect_models: Dict[str, DetectYOLOModel] = {}
-            self._classify_models: Dict[str, ClassifyYOLOModel] = {}
+            # 按模型类型组织
+            self._yolo_models: Dict[str, Dict[str, Any]] = (
+                {}
+            )  # version -> {detect: model, classify: model}
             self._resnet_models: Dict[str, ResNetModel] = {}
             self._db = Database()
             self._model_locks: Dict[str, threading.Lock] = {}  # 每个模型的操作锁
@@ -59,117 +61,92 @@ class ModelManager:
                 models = self._db.get_all_models()
                 logger.info(f"从数据库获取到的模型列表: {models}")
 
-                # 加载检测模型
-                for version in models["detect"]:
-                    try:
-                        logger.info(f"开始加载检测模型: {version}")
-                        model_data = self._db.get_model(version, "detect")
-                        logger.info(f"获取到的模型数据: {model_data}")
+                # 清空现有模型
+                self._yolo_models.clear()
+                self._resnet_models.clear()
 
-                        if model_data and Path(model_data["file_path"]).exists():
-                            logger.info(f"模型文件存在: {model_data['file_path']}")
-                            # 设置YOLOv8模型的输出控制
-                            model_data["parameters"] = model_data.get("parameters", {})
-                            model_data["parameters"].update(
-                                {
-                                    "verbose": False,  # 禁用详细输出
-                                    "show": False,  # 禁用显示
-                                    "save": False,  # 禁用保存
-                                }
-                            )
-                            logger.info(
-                                f"准备加载模型，参数: {model_data['parameters']}"
-                            )
-                            self._detect_models[version] = DetectYOLOModel(
-                                model_data["file_path"], model_data["parameters"]
-                            )
-                            logger.info(f"成功加载检测模型: {version}")
-                        else:
-                            logger.warning(
-                                f"检测模型文件不存在: {version}, 路径: {model_data['file_path'] if model_data else 'None'}"
-                            )
-                    except Exception as e:
-                        logger.error(
-                            f"加载检测模型 {version} 失败: {str(e)}", exc_info=True
-                        )
+                # 遍历所有模型
+                for model_name, versions in models.items():
+                    model_type = model_name.split("_")[
+                        0
+                    ].lower()  # 从模型名称提取类型（yolo/resnet）
 
-                # 加载分类模型
-                for version in models["classify"]:
-                    try:
-                        logger.info(f"开始加载分类模型: {version}")
-                        model_data = self._db.get_model(version, "classify")
-                        logger.info(f"获取到的模型数据: {model_data}")
+                    for version_info in versions:
+                        version = version_info["version"]
+                        task_types = version_info["task_types"]
 
-                        if model_data and Path(model_data["file_path"]).exists():
-                            logger.info(f"模型文件存在: {model_data['file_path']}")
-                            model_data["parameters"] = model_data.get("parameters", {})
-                            model_data["parameters"].update(
-                                {
-                                    "verbose": False,  # 禁用详细输出
-                                    "show": False,  # 禁用显示
-                                    "save": False,  # 禁用保存
-                                }
-                            )
-                            logger.info(
-                                f"准备加载模型，参数: {model_data['parameters']}"
-                            )
-                            self._classify_models[version] = ClassifyYOLOModel(
-                                model_data["file_path"], model_data["parameters"]
-                            )
-                            logger.info(f"成功加载分类模型: {version}")
-                        else:
-                            logger.warning(
-                                f"分类模型文件不存在: {version}, 路径: {model_data['file_path'] if model_data else 'None'}"
-                            )
-                    except Exception as e:
-                        logger.error(
-                            f"加载分类模型 {version} 失败: {str(e)}", exc_info=True
-                        )
+                        try:
+                            logger.info(f"开始加载模型: {model_name}-{version}")
+                            model_data = self._db.get_model(model_name, version)
+                            logger.info(f"获取到的模型数据: {model_data}")
 
-                # 加载ResNet模型
-                for version in models["resnet"]:
-                    try:
-                        logger.info(f"开始加载ResNet模型: {version}")
-                        model_data = self._db.get_model(version, "resnet")
-                        logger.info(f"获取到的模型数据: {model_data}")
+                            if model_data and Path(model_data["file_path"]).exists():
+                                logger.info(f"模型文件存在: {model_data['file_path']}")
+                                # 设置模型的输出控制
+                                model_data["parameters"] = model_data.get(
+                                    "parameters", {}
+                                )
+                                model_data["parameters"].update(
+                                    {
+                                        "verbose": False,  # 禁用详细输出
+                                        "show": False,  # 禁用显示
+                                        "save": False,  # 禁用保存
+                                    }
+                                )
+                                logger.info(
+                                    f"准备加载模型，参数: {model_data['parameters']}"
+                                )
 
-                        if model_data and Path(model_data["file_path"]).exists():
-                            logger.info(f"模型文件存在: {model_data['file_path']}")
-                            model_data["parameters"] = model_data.get("parameters", {})
-                            model_data["parameters"].update(
-                                {
-                                    "verbose": False,  # 禁用详细输出
-                                    "show": False,  # 禁用显示
-                                    "save": False,  # 禁用保存
-                                }
-                            )
-                            logger.info(
-                                f"准备加载模型，参数: {model_data['parameters']}"
-                            )
-                            self._resnet_models[version] = ResNetModel(
-                                model_data["file_path"], model_data["parameters"]
-                            )
-                            logger.info(f"成功加载ResNet模型: {version}")
-                        else:
-                            logger.warning(
-                                f"ResNet模型文件不存在: {version}, 路径: {model_data['file_path'] if model_data else 'None'}"
-                            )
-                    except Exception as e:
-                        logger.error(
-                            f"加载ResNet模型 {version} 失败: {str(e)}", exc_info=True
-                        )
+                                # 根据模型类型加载
+                                if model_type == "yolo":
+                                    if version not in self._yolo_models:
+                                        self._yolo_models[version] = {}
 
-                if (
-                    not self._detect_models
-                    and not self._classify_models
-                    and not self._resnet_models
-                ):
+                                    # 加载YOLO模型的不同任务
+                                    for task_type in task_types:
+                                        if task_type == "detect":
+                                            self._yolo_models[version]["detect"] = (
+                                                DetectYOLOModel(
+                                                    model_data["file_path"],
+                                                    model_data["parameters"],
+                                                )
+                                            )
+                                            logger.info(
+                                                f"成功加载YOLO检测模型: {version}"
+                                            )
+                                        elif task_type == "classify":
+                                            self._yolo_models[version]["classify"] = (
+                                                ClassifyYOLOModel(
+                                                    model_data["file_path"],
+                                                    model_data["parameters"],
+                                                )
+                                            )
+                                            logger.info(
+                                                f"成功加载YOLO分类模型: {version}"
+                                            )
+
+                                elif model_type == "resnet":
+                                    self._resnet_models[version] = ResNetModel(
+                                        model_data["file_path"],
+                                        model_data["parameters"],
+                                    )
+                                    logger.info(f"成功加载ResNet模型: {version}")
+                            else:
+                                logger.warning(
+                                    f"模型文件不存在: {model_name}-{version}, 路径: {model_data['file_path'] if model_data else 'None'}"
+                                )
+                        except Exception as e:
+                            logger.error(
+                                f"加载模型 {model_name}-{version} 失败: {str(e)}",
+                                exc_info=True,
+                            )
+
+                if not self._yolo_models and not self._resnet_models:
                     logger.warning("未找到任何模型文件")
                 else:
                     logger.info(
-                        f"模型加载完成，检测模型: {list(self._detect_models.keys())}, "
-                        f"分类模型: {list(self._classify_models.keys())}, "
-                        f"ResNet模型: {list(self._resnet_models.keys())}"
+                        f"模型加载完成，YOLO模型版本: {list(self._yolo_models.keys())}, "
+                        f"ResNet模型版本: {list(self._resnet_models.keys())}"
                     )
 
             except Exception as e:
@@ -178,10 +155,12 @@ class ModelManager:
 
     def add_model(
         self,
+        name: str,
         version: str,
-        model_type: str,
+        task_type: str,
         file_path: Path,
         parameters: Optional[Dict[str, Any]] = None,
+        description: Optional[str] = None,
     ) -> bool:
         """添加新模型"""
         try:
@@ -194,12 +173,14 @@ class ModelManager:
 
             # 添加到数据库
             if self._db.add_model(
+                name=name,
                 version=version,
-                model_type=model_type,
+                task_type=task_type,
                 file_path=str(file_path),
                 file_size=file_size,
                 file_hash=file_hash,
                 parameters=parameters,
+                description=description,
             ):
                 # 重新加载模型
                 self._load_models()
@@ -210,17 +191,11 @@ class ModelManager:
             logger.error(f"添加模型失败: {str(e)}")
             return False
 
-    def get_detect_model(self, version: str) -> Optional[DetectYOLOModel]:
-        """获取指定版本的检测模型（线程安全）"""
-        model_key = f"detect_{version}"
+    def get_yolo_model(self, version: str, task_type: str) -> Optional[Any]:
+        """获取指定版本的YOLO模型（线程安全）"""
+        model_key = f"yolo_{version}_{task_type}"
         with self._get_model_lock(model_key):
-            return self._detect_models.get(version)
-
-    def get_classify_model(self, version: str) -> Optional[ClassifyYOLOModel]:
-        """获取指定版本的分类模型（线程安全）"""
-        model_key = f"classify_{version}"
-        with self._get_model_lock(model_key):
-            return self._classify_models.get(version)
+            return self._yolo_models.get(version, {}).get(task_type)
 
     def get_resnet_model(self, version: str) -> Optional[ResNetModel]:
         """获取指定版本的ResNet模型（线程安全）"""
@@ -232,18 +207,13 @@ class ModelManager:
         """获取所有可用的模型版本"""
         return self._db.get_all_models()
 
-    def delete_model(self, version: str, model_type: str) -> bool:
+    def delete_model(self, name: str, version: str) -> bool:
         """删除指定版本的模型"""
         try:
             # 从数据库中删除元数据
-            if self._db.delete_model(version, model_type):
-                # 从内存中删除模型
-                if model_type == "detect":
-                    self._detect_models.pop(version, None)
-                elif model_type == "classify":
-                    self._classify_models.pop(version, None)
-                elif model_type == "resnet":
-                    self._resnet_models.pop(version, None)
+            if self._db.delete_model(name, version):
+                # 重新加载模型
+                self._load_models()
                 return True
             return False
         except Exception as e:
