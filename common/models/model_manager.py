@@ -136,6 +136,13 @@ class ModelManager:
                         if model_data and Path(model_data["file_path"]).exists():
                             logger.info(f"模型文件存在: {model_data['file_path']}")
                             model_data["parameters"] = model_data.get("parameters", {})
+                            model_data["parameters"].update(
+                                {
+                                    "verbose": False,  # 禁用详细输出
+                                    "show": False,  # 禁用显示
+                                    "save": False,  # 禁用保存
+                                }
+                            )
                             logger.info(
                                 f"准备加载模型，参数: {model_data['parameters']}"
                             )

@@ -541,15 +541,192 @@ class BaseResNetModel:
         }
 
 
-class ResNetModel(BaseResNetModel):
-    """专注于分类任务的ResNet模型"""
+class ResNetModel:
+    """ResNet模型基类
+
+    专注于使用ResNet进行图像分类的模型类，支持pytorch下的ResNet各个版本
+    """
 
     def __init__(
-        self,
-        model_path: Union[str, Path],
-        params: Optional[Dict[str, Any]] = None,
+        self, model_path: Union[str, Path], params: Optional[Dict[str, Any]] = None
     ):
-        super().__init__(model_path, params)
+        """
+        初始化ResNet模型
+
+        Args:
+            model_path: 模型路径
+            params: 初始化参数
+
+        Raises:
+            ModelError: 当模型加载失败时抛出
+        """
+        try:
+            logger.info(f"开始初始化ResNet模型，路径: {model_path}")
+            self.model_path = Path(model_path)
+            if not self.model_path.exists():
+                logger.error(f"模型文件不存在: {model_path}")
+                raise FileNotFoundError(f"模型文件不存在: {model_path}")
+            logger.info(f"模型文件存在，大小: {self.model_path.stat().st_size} 字节")
+
+            # 默认参数
+            self.default_params = {
+                "device": device,
+                "half": True if device != "cpu" else False,
+                "img_size": 224,
+            }
+
+            self.params = params or self.default_params.copy()
+            logger.info(f"模型参数: {self.params}")
+
+            # 加载模型
+            logger.info("开始加载ResNet模型...")
+            import torch
+
+            self.model = torch.load(
+                str(self.model_path), map_location=self.params["device"]
+            )
+            self.model.eval()
+
+            # 如果使用半精度
+            if self.params.get("half", False) and self.params["device"] != "cpu":
+                self.model = self.model.half()
+
+            logger.info(f"成功加载ResNet模型: {model_path}")
+
+        except Exception as e:
+            logger.error(f"ResNet模型加载失败: {str(e)}", exc_info=True)
+            raise ModelError(f"ResNet模型加载失败: {str(e)}")
+
+    def predict(
+        self, image_data: Union[bytes, List[bytes]], batch_size: int = 1, **kwargs
+    ) -> List[Dict[str, Any]]:
+        """
+        进行推理，支持单张图片和批量图片
+
+        Args:
+            image_data: 输入图片（二进制）或图片列表
+            batch_size: 批处理大小
+            **kwargs: 额外的推理参数
+
+        Returns:
+            ResNet 推理结果
+
+        Raises:
+            ModelError: 当推理过程出错时抛出
+        """
+        try:
+            logger.info("开始ResNet模型推理...")
+            # 合并默认参数和传入的参数
+            predict_params = self.params.copy()
+            predict_params.update(kwargs)
+            logger.info(f"推理参数: {predict_params}")
+
+            # 导入必要的库
+            import torch
+            import torchvision.transforms as transforms
+            from PIL import Image
+            import io
+
+            # 设置图像预处理
+            preprocess = transforms.Compose(
+                [
+                    transforms.Resize(predict_params.get("img_size", 224)),
+                    transforms.CenterCrop(predict_params.get("img_size", 224)),
+                    transforms.ToTensor(),
+                    transforms.Normalize(
+                        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                    ),
+                ]
+            )
+
+            results = []
+            # 处理单张或多张图片
+            if isinstance(image_data, list):
+                # 批量处理
+                logger.info(f"批量处理 {len(image_data)} 张图片...")
+                for i in range(0, len(image_data), batch_size):
+                    batch = image_data[i : i + batch_size]
+                    logger.info(f"处理批次 {i//batch_size + 1}, 大小: {len(batch)}")
+
+                    batch_tensors = []
+                    for img_bytes in batch:
+                        img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+                        img_tensor = preprocess(img)
+                        batch_tensors.append(img_tensor)
+
+                    # 堆叠为批次
+                    input_batch = torch.stack(batch_tensors).to(
+                        predict_params["device"]
+                    )
+
+                    # 如果使用半精度
+                    if (
+                        predict_params.get("half", False)
+                        and predict_params["device"] != "cpu"
+                    ):
+                        input_batch = input_batch.half()
+
+                    # 推理
+                    with torch.no_grad():
+                        output = self.model(input_batch)
+
+                    # 处理每张图片的结果
+                    for out in output:
+                        # 获取预测结果
+                        probabilities = torch.nn.functional.softmax(out, dim=0)
+                        # 获取类别ID和对应概率
+                        top5_prob, top5_indices = torch.topk(probabilities, 5)
+
+                        result = {
+                            "probs": probabilities,
+                            "top5": top5_indices.cpu().numpy(),
+                            "top5conf": top5_prob.cpu().numpy(),
+                            "top1": top5_indices[0].item(),
+                            "top1conf": top5_prob[0].item(),
+                            "names": self.params.get("class_names", {}),  # 类别名称字典
+                        }
+
+                        results.append(result)
+            else:
+                # 单张图片处理
+                logger.info("处理单张图片...")
+                img = Image.open(io.BytesIO(image_data)).convert("RGB")
+                img_tensor = preprocess(img)
+                img_tensor = torch.unsqueeze(img_tensor, 0).to(predict_params["device"])
+
+                # 如果使用半精度
+                if (
+                    predict_params.get("half", False)
+                    and predict_params["device"] != "cpu"
+                ):
+                    img_tensor = img_tensor.half()
+
+                # 推理
+                with torch.no_grad():
+                    output = self.model(img_tensor)
+
+                # 获取预测结果
+                probabilities = torch.nn.functional.softmax(output[0], dim=0)
+                # 获取类别ID和对应概率
+                top5_prob, top5_indices = torch.topk(probabilities, 5)
+
+                result = {
+                    "probs": probabilities,
+                    "top5": top5_indices.cpu().numpy(),
+                    "top5conf": top5_prob.cpu().numpy(),
+                    "top1": top5_indices[0].item(),
+                    "top1conf": top5_prob[0].item(),
+                    "names": self.params.get("class_names", {}),  # 类别名称字典
+                }
+
+                results.append(result)
+
+            logger.info(f"ResNet推理完成，结果数量: {len(results)}")
+            return results
+
+        except Exception as e:
+            logger.error(f"ResNet推理过程出错: {str(e)}", exc_info=True)
+            raise ModelError(f"ResNet推理过程出错: {str(e)}")
 
     def classify(
         self, image_data: Union[bytes, List[bytes]], batch_size: int = 1
@@ -579,22 +756,55 @@ class ResNetModel(BaseResNetModel):
         """
         parsed_results = []
         for result in results:
-            # 获取预测的类别和置信度
-            probs = torch.softmax(result, dim=1)
-            top5_probs, top5_indices = torch.topk(probs, 5)
+            top1_index = result["top1"]
+            class_names = result["names"]
+            top1_label = class_names.get(top1_index, f"class_{top1_index}")
+            top1_confidence = float(result["top1conf"])
+
+            # 获取前5个最可能的类别
+            top5_indices = result["top5"]
+            top5_confidences = result["top5conf"].tolist()
+            top5_labels = [class_names.get(idx, f"class_{idx}") for idx in top5_indices]
 
             result_info = {
                 "type": "resnet",
-                "class_id": int(top5_indices[0][0]),
-                "class_name": f"class_{int(top5_indices[0][0])}",  # 需要根据实际情况映射类别名称
-                "confidence": float(top5_probs[0][0]),
+                "class_id": top1_index,
+                "class_name": top1_label,
+                "confidence": top1_confidence,
                 "top5": [
-                    {
-                        "class_name": f"class_{int(idx)}",  # 需要根据实际情况映射类别名称
-                        "confidence": float(prob),
-                    }
-                    for idx, prob in zip(top5_indices[0], top5_probs[0])
+                    {"class_name": label, "confidence": float(conf)}
+                    for label, conf in zip(top5_labels, top5_confidences)
                 ],
             }
             parsed_results.append(result_info)
         return parsed_results
+
+    def update_params(self, **kwargs) -> None:
+        """
+        动态更新模型参数
+
+        Args:
+            **kwargs: 要更新的参数
+
+        Raises:
+            ModelError: 当参数更新失败时抛出
+        """
+        try:
+            self.params.update(kwargs)
+            logger.info(f"成功更新ResNet模型参数: {kwargs}")
+        except Exception as e:
+            logger.error(f"参数更新失败: {str(e)}")
+            raise ModelError(f"参数更新失败: {str(e)}")
+
+    def get_model_info(self) -> Dict[str, Any]:
+        """
+        获取模型信息
+
+        Returns:
+            包含模型信息的字典
+        """
+        return {
+            "model_path": str(self.model_path),
+            "parameters": self.params,
+            "type": "resnet",
+        }
