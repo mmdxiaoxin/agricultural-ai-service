@@ -20,7 +20,7 @@ ai_bp.route("/versions", methods=["GET"])(
 )
 
 # 检测模型路由
-ai_bp.route("/detect/<version>", methods=["POST"])(
+ai_bp.route("/detect/<model_name>/<version>", methods=["POST"])(
     apply_auth_decorators("user", "admin", "expert")(detect_controller)
 )
 ai_bp.route("/detect/result/<task_id>", methods=["GET"])(
@@ -28,7 +28,7 @@ ai_bp.route("/detect/result/<task_id>", methods=["GET"])(
 )
 
 # 分类模型路由
-ai_bp.route("/classify/<version>", methods=["POST"])(
+ai_bp.route("/classify/<model_name>/<version>", methods=["POST"])(
     apply_auth_decorators("user", "admin", "expert")(classify_controller)
 )
 ai_bp.route("/classify/result/<task_id>", methods=["GET"])(

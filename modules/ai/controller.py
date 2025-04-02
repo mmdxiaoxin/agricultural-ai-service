@@ -20,11 +20,12 @@ ai_service = initializer.ai_service
 db = initializer.database
 
 
-def detect_controller(version: str):
+def detect_controller(model_name: str, version: str):
     """
     接收植物图像，进行目标检测推理
 
     Args:
+        model_name: 模型名称
         version: 模型版本
     """
     try:
@@ -52,7 +53,7 @@ def detect_controller(version: str):
         image_data = image_file.read()
 
         # 提交异步任务
-        task = detect_task.delay(version, image_data)
+        task = detect_task.delay(model_name, version, image_data)
 
         # 返回任务ID
         return ApiResponse.success(
@@ -126,11 +127,12 @@ def get_detect_result_controller(task_id: str):
         return ApiResponse.internal_error("获取任务结果失败")
 
 
-def classify_controller(version: str):
+def classify_controller(model_name: str, version: str):
     """
     接收植物图像，进行分类推理
 
     Args:
+        model_name: 模型名称
         version: 模型版本
     """
     try:
@@ -163,7 +165,7 @@ def classify_controller(version: str):
         image_data = image_file.read()
 
         # 提交异步任务
-        task = classify_task.delay(version, image_data, model_type)
+        task = classify_task.delay(model_name, version, image_data, model_type)
 
         # 返回任务ID
         return ApiResponse.success(

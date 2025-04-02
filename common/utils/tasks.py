@@ -7,16 +7,18 @@ logger = log_manager.get_logger(__name__)
 
 
 @celery.task(name="tasks.detect", bind=True)
-def detect_task(self, version: str, image_data: bytes):
+def detect_task(self, model_name: str, version: str, image_data: bytes):
     """目标检测任务"""
     try:
         # 调用服务层进行推理
-        result = initializer.ai_service.detect(version, image_data)
+        result = initializer.ai_service.detect(model_name, version, image_data)
         if result is None:
             # 检查模型是否存在
-            model = initializer.model_manager.get_yolo_model(version, "detect")
+            model = initializer.model_manager.get_yolo_model(
+                model_name, version, "detect"
+            )
             if model is None:
-                raise Exception(f"未找到YOLO检测模型版本: {version}")
+                raise Exception(f"未找到YOLO检测模型: {model_name}-{version}")
             else:
                 raise Exception("目标检测推理失败，请检查模型状态或图片数据")
 
@@ -31,20 +33,26 @@ def detect_task(self, version: str, image_data: bytes):
 
 
 @celery.task(name="tasks.classify", bind=True)
-def classify_task(self, version: str, image_data: bytes, model_type: str = "yolo"):
+def classify_task(
+    self, model_name: str, version: str, image_data: bytes, model_type: str = "yolo"
+):
     """图像分类任务"""
     try:
         # 调用服务层进行推理
-        result = initializer.ai_service.classify(version, image_data, model_type)
+        result = initializer.ai_service.classify(
+            model_name, version, image_data, model_type
+        )
         if result is None:
             # 检查模型是否存在
             if model_type == "yolo":
-                model = initializer.model_manager.get_yolo_model(version, "classify")
+                model = initializer.model_manager.get_yolo_model(
+                    model_name, version, "classify"
+                )
             else:
-                model = initializer.model_manager.get_resnet_model(version)
+                model = initializer.model_manager.get_resnet_model(model_name, version)
 
             if model is None:
-                raise Exception(f"未找到{model_type}分类模型版本: {version}")
+                raise Exception(f"未找到{model_type}分类模型: {model_name}-{version}")
             else:
                 raise Exception("图像分类推理失败，请检查模型状态或图片数据")
 
