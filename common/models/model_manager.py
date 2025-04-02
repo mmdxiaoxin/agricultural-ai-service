@@ -35,6 +35,11 @@ class ModelManager:
             self._db = Database()
             self._model_locks: Dict[str, threading.Lock] = {}  # 每个模型的操作锁
             self._initialized = True
+
+            # 验证数据库数据完整性
+            if not self._db.verify_model_data():
+                logger.error("数据库验证失败，模型数据可能不完整")
+
             self._load_models()
 
     def _get_model_lock(self, model_key: str) -> threading.Lock:
@@ -59,6 +64,10 @@ class ModelManager:
             try:
                 # 获取所有模型元数据
                 models = self._db.get_all_models()
+                if not models:
+                    logger.warning("数据库中没有找到任何模型")
+                    return
+
                 logger.info(f"从数据库获取到的模型列表: {models}")
 
                 # 清空现有模型
@@ -67,17 +76,32 @@ class ModelManager:
 
                 # 遍历所有模型
                 for model_name, versions in models.items():
+                    if not versions:
+                        logger.warning(f"模型 {model_name} 没有版本信息")
+                        continue
+
                     model_type = model_name.split("_")[
                         0
                     ].lower()  # 从模型名称提取类型（yolo/resnet）
 
                     for version_info in versions:
-                        version = version_info["version"]
-                        task_types = version_info["task_types"]
+                        version = version_info.get("version")
+                        task_types = version_info.get("task_types", [])
+
+                        if not version:
+                            logger.warning(f"模型 {model_name} 的版本信息不完整")
+                            continue
 
                         try:
                             logger.info(f"开始加载模型: {model_name}-{version}")
                             model_data = self._db.get_model(model_name, version)
+
+                            if not model_data:
+                                logger.warning(
+                                    f"未找到模型数据: {model_name}-{version}"
+                                )
+                                continue
+
                             logger.info(f"获取到的模型数据: {model_data}")
 
                             if model_data and Path(model_data["file_path"]).exists():

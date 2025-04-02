@@ -199,7 +199,22 @@ class Database:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
-                    SELECT m.*, v.*, GROUP_CONCAT(t.name) as task_types
+                    SELECT 
+                        m.id as model_id,
+                        m.name, 
+                        m.model_type,
+                        m.description, 
+                        m.created_at as model_created_at,
+                        m.updated_at as model_updated_at,
+                        v.id as version_id,
+                        v.version,
+                        v.file_path,
+                        v.file_size,
+                        v.file_hash,
+                        v.parameters,
+                        v.created_at as version_created_at,
+                        v.updated_at as version_updated_at,
+                        GROUP_CONCAT(t.name) as task_types
                     FROM models m
                     JOIN versions v ON m.id = v.model_id
                     LEFT JOIN version_tasks vt ON v.id = vt.version_id
@@ -210,23 +225,38 @@ class Database:
                     (name, version),
                 )
                 row = cursor.fetchone()
-                if row:
+
+                if not row:
+                    logger.warning(f"未找到模型: {name}-{version}")
+                    return None
+
+                try:
+                    # 确保所有必要的字段都存在
+                    if len(row) < 15:  # 检查行数据是否完整
+                        logger.error(
+                            f"模型数据不完整: {name}-{version}, 列数: {len(row)}"
+                        )
+                        return None
+
                     return {
                         "model_id": row[0],
                         "name": row[1],
                         "model_type": row[2],
                         "description": row[3],
                         "version_id": row[6],
-                        "version": row[8],
-                        "file_path": row[9],
-                        "file_size": row[10],
-                        "file_hash": row[11],
-                        "parameters": eval(row[12]) if row[12] else None,
-                        "task_types": row[17].split(",") if row[17] else [],
-                        "created_at": row[13],
-                        "updated_at": row[14],
+                        "version": row[7],
+                        "file_path": row[8],
+                        "file_size": row[9],
+                        "file_hash": row[10],
+                        "parameters": eval(row[11]) if row[11] else None,
+                        "task_types": row[14].split(",") if row[14] else [],
+                        "created_at": row[12],
+                        "updated_at": row[13],
                     }
-                return None
+                except IndexError as e:
+                    logger.error(f"解析模型数据时出错: {str(e)}, 数据: {row}")
+                    return None
+
         except Exception as e:
             logger.error(f"获取模型信息失败: {str(e)}")
             return None
@@ -239,11 +269,19 @@ class Database:
                 cursor.execute(
                     """
                     SELECT 
+                        m.id as model_id,
                         m.name, 
                         m.model_type,
                         m.description, 
-                        v.version, 
-                        GROUP_CONCAT(t.name) as task_types
+                        v.id as version_id,
+                        v.version,
+                        v.file_path,
+                        v.file_size,
+                        v.file_hash,
+                        v.parameters,
+                        GROUP_CONCAT(t.name) as task_types,
+                        v.created_at,
+                        v.updated_at
                     FROM models m
                     JOIN versions v ON m.id = v.model_id
                     LEFT JOIN version_tasks vt ON v.id = vt.version_id
@@ -253,18 +291,37 @@ class Database:
                 )
                 rows = cursor.fetchall()
 
+                if not rows:
+                    logger.warning("数据库中没有找到任何模型")
+                    return {}
+
                 result = {}
-                for name, model_type, description, version, task_types in rows:
-                    if name not in result:
-                        result[name] = []
-                    result[name].append(
-                        {
-                            "version": version,
-                            "model_type": model_type,
-                            "task_types": task_types.split(",") if task_types else [],
-                            "description": description,
-                        }
-                    )
+                for row in rows:
+                    try:
+                        name = row[1]  # m.name
+                        if name not in result:
+                            result[name] = []
+
+                        result[name].append(
+                            {
+                                "model_id": row[0],
+                                "version": row[5],
+                                "model_type": row[2],
+                                "description": row[3],
+                                "version_id": row[4],
+                                "file_path": row[6],
+                                "file_size": row[7],
+                                "file_hash": row[8],
+                                "parameters": eval(row[9]) if row[9] else None,
+                                "task_types": row[10].split(",") if row[10] else [],
+                                "created_at": row[11],
+                                "updated_at": row[12],
+                            }
+                        )
+                    except IndexError as e:
+                        logger.error(f"解析模型数据时出错: {str(e)}, 数据: {row}")
+                        continue
+
                 return result
         except Exception as e:
             logger.error(f"获取所有模型信息失败: {str(e)}")
@@ -399,7 +456,11 @@ class Database:
                     (model_id,),
                 )
                 row = cursor.fetchone()
-                if row:
+                if not row:
+                    logger.warning(f"未找到ID为 {model_id} 的模型")
+                    return None
+
+                try:
                     return {
                         "model_id": row[0],
                         "name": row[1],
@@ -415,7 +476,63 @@ class Database:
                         "created_at": row[13],
                         "updated_at": row[14],
                     }
-                return None
+                except IndexError as e:
+                    logger.error(f"解析模型数据时出错: {str(e)}")
+                    return None
         except Exception as e:
             logger.error(f"获取模型信息失败: {str(e)}")
             return None
+
+    def verify_model_data(self) -> bool:
+        """验证数据库中的模型数据完整性"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                # 检查模型表
+                cursor.execute("SELECT * FROM models")
+                models = cursor.fetchall()
+                logger.info(f"模型表中有 {len(models)} 条记录")
+                for model in models:
+                    logger.info(f"模型记录: {model}")
+
+                # 检查版本表
+                cursor.execute("SELECT * FROM versions")
+                versions = cursor.fetchall()
+                logger.info(f"版本表中有 {len(versions)} 条记录")
+                for version in versions:
+                    logger.info(f"版本记录: {version}")
+
+                # 检查任务表
+                cursor.execute("SELECT * FROM tasks")
+                tasks = cursor.fetchall()
+                logger.info(f"任务表中有 {len(tasks)} 条记录")
+                for task in tasks:
+                    logger.info(f"任务记录: {task}")
+
+                # 检查版本-任务关联表
+                cursor.execute("SELECT * FROM version_tasks")
+                version_tasks = cursor.fetchall()
+                logger.info(f"版本-任务关联表中有 {len(version_tasks)} 条记录")
+                for vt in version_tasks:
+                    logger.info(f"版本-任务关联记录: {vt}")
+
+                # 检查数据完整性
+                cursor.execute(
+                    """
+                    SELECT m.name, v.version, COUNT(vt.task_id) as task_count
+                    FROM models m
+                    JOIN versions v ON m.id = v.model_id
+                    LEFT JOIN version_tasks vt ON v.id = vt.version_id
+                    GROUP BY m.id, v.id
+                """
+                )
+                model_stats = cursor.fetchall()
+                logger.info("模型统计信息:")
+                for stat in model_stats:
+                    logger.info(f"模型: {stat[0]}-{stat[1]}, 任务数量: {stat[2]}")
+
+                return True
+        except Exception as e:
+            logger.error(f"验证模型数据失败: {str(e)}")
+            return False

@@ -47,15 +47,6 @@ DEFAULT_MODEL_CONFIGS: Dict[str, Dict[str, Any]] = {
                     "iou": 0.5,
                 },
             },
-            "2.0.0": {
-                "tasks": ["detect", "classify"],
-                "path": Config.WEIGHT_DIR / "yolo8" / "multi-task.pt",
-                "description": "YOLOv8多任务模型",
-                "parameters": {
-                    "conf": 0.25,
-                    "iou": 0.5,
-                },
-            },
         }
     },
     "resnet18": {
