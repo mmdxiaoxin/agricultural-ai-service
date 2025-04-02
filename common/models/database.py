@@ -128,17 +128,24 @@ class Database:
 
                 detect_versions = []
                 classify_versions = []
+                resnet_versions = []
 
                 for version, model_type in rows:
                     if model_type == "detect":
                         detect_versions.append(version)
                     elif model_type == "classify":
                         classify_versions.append(version)
+                    elif model_type == "resnet":
+                        resnet_versions.append(version)
 
-                return {"detect": detect_versions, "classify": classify_versions}
+                return {
+                    "detect": detect_versions,
+                    "classify": classify_versions,
+                    "resnet": resnet_versions,
+                }
         except Exception as e:
             logger.error(f"获取所有模型版本失败: {str(e)}")
-            return {"detect": [], "classify": []}
+            return {"detect": [], "classify": [], "resnet": []}
 
     def delete_model(self, version: str, model_type: str) -> bool:
         """删除模型元数据"""

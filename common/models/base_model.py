@@ -350,3 +350,251 @@ class ClassifyYOLOModel(BaseYOLOModel):
             }
             parsed_results.append(result_info)
         return parsed_results
+
+
+class BaseResNetModel:
+    """ResNet 模型基类"""
+
+    def __init__(
+        self, model_path: Union[str, Path], params: Optional[Dict[str, Any]] = None
+    ):
+        """
+        初始化 ResNet 模型
+
+        Args:
+            model_path: 模型路径
+            params: 模型参数
+
+        Raises:
+            ModelError: 当模型加载失败时抛出
+        """
+        try:
+            logger.info(f"开始初始化ResNet模型，路径: {model_path}")
+            self.model_path = Path(model_path)
+            if not self.model_path.exists():
+                logger.error(f"模型文件不存在: {model_path}")
+                raise FileNotFoundError(f"模型文件不存在: {model_path}")
+            logger.info(f"模型文件存在，大小: {self.model_path.stat().st_size} 字节")
+
+            self.params = params or {}
+            logger.info(f"模型参数: {self.params}")
+
+            logger.info("开始加载ResNet模型...")
+            self.model = torch.load(str(self.model_path))
+            self.model.eval()  # 设置为评估模式
+            if torch.cuda.is_available():
+                self.model = self.model.cuda()
+            logger.info(f"成功加载模型: {model_path}")
+            logger.info(f"模型设备: {next(self.model.parameters()).device}")
+
+        except Exception as e:
+            logger.error(f"模型加载失败: {str(e)}", exc_info=True)
+            raise ModelError(f"模型加载失败: {str(e)}")
+
+    def predict(
+        self, image_data: Union[bytes, List[bytes]], batch_size: int = 1, **kwargs
+    ) -> Any:
+        """
+        进行推理，支持单张图片和批量图片
+
+        Args:
+            image_data: 输入图片（二进制）或图片列表
+            batch_size: 批处理大小
+            **kwargs: 额外的推理参数
+
+        Returns:
+            推理结果
+
+        Raises:
+            ModelError: 当推理过程出错时抛出
+        """
+        try:
+            logger.info("开始模型推理...")
+            # 合并默认参数和传入的参数
+            predict_params = self.params.copy()
+            predict_params.update(kwargs)
+            logger.info(f"推理参数: {predict_params}")
+
+            if isinstance(image_data, list):
+                # 批量处理
+                logger.info("开始批量处理...")
+                results = []
+                for i in range(0, len(image_data), batch_size):
+                    batch = image_data[i : i + batch_size]
+                    logger.info(f"处理批次 {i//batch_size + 1}, 大小: {len(batch)}")
+                    # 将bytes转换为numpy数组
+                    batch_images = [bytes_to_numpy(img) for img in batch]
+                    batch_results = self._process_batch(batch_images, **predict_params)
+                    results.extend(batch_results)
+                logger.info(f"批量处理完成，共 {len(results)} 个结果")
+                return results
+            else:
+                # 单张图片处理
+                logger.info("开始单张图片处理...")
+                # 将bytes转换为numpy数组
+                image = bytes_to_numpy(image_data)
+                result = self._process_single(image, **predict_params)
+                logger.info("单张图片处理完成")
+                return result
+
+        except Exception as e:
+            logger.error(f"推理过程出错: {str(e)}", exc_info=True)
+            raise ModelError(f"推理过程出错: {str(e)}")
+
+    def _process_single(self, image: np.ndarray, **kwargs) -> torch.Tensor:
+        """处理单张图片"""
+        # 转换为tensor
+        image_tensor = torch.from_numpy(image).float()
+        image_tensor = image_tensor.permute(2, 0, 1)  # HWC to CHW
+        image_tensor = image_tensor.unsqueeze(0)  # 添加batch维度
+        if torch.cuda.is_available():
+            image_tensor = image_tensor.cuda()
+
+        with torch.no_grad():
+            output = self.model(image_tensor)
+        return output
+
+    def _process_batch(self, images: List[np.ndarray], **kwargs) -> List[torch.Tensor]:
+        """处理批量图片"""
+        # 转换为tensor
+        batch = torch.stack(
+            [torch.from_numpy(img).float().permute(2, 0, 1) for img in images]
+        )
+        if torch.cuda.is_available():
+            batch = batch.cuda()
+
+        with torch.no_grad():
+            outputs = self.model(batch)
+        return outputs
+
+    def update_params(self, **kwargs) -> None:
+        """
+        动态更新模型参数
+
+        Args:
+            **kwargs: 要更新的参数
+
+        Raises:
+            ModelError: 当参数更新失败时抛出
+        """
+        try:
+            self.params.update(kwargs)
+            logger.info(f"成功更新模型参数: {kwargs}")
+        except Exception as e:
+            logger.error(f"参数更新失败: {str(e)}")
+            raise ModelError(f"参数更新失败: {str(e)}")
+
+    def save_model(self, save_path: Union[str, Path]) -> None:
+        """
+        保存训练后的模型
+
+        Args:
+            save_path: 保存路径
+
+        Raises:
+            ModelError: 当保存失败时抛出
+        """
+        try:
+            save_path = Path(save_path)
+            torch.save(self.model.state_dict(), str(save_path))
+            logger.info(f"模型已保存到: {save_path}")
+        except Exception as e:
+            logger.error(f"模型保存失败: {str(e)}")
+            raise ModelError(f"模型保存失败: {str(e)}")
+
+    def load_model(self, model_path: Union[str, Path]) -> None:
+        """
+        加载新模型
+
+        Args:
+            model_path: 新模型路径
+
+        Raises:
+            ModelError: 当加载失败时抛出
+        """
+        try:
+            model_path = Path(model_path)
+            if not model_path.exists():
+                raise FileNotFoundError(f"模型文件不存在: {model_path}")
+
+            self.model_path = model_path
+            self.model = torch.load(str(model_path))
+            self.model.eval()
+            if torch.cuda.is_available():
+                self.model = self.model.cuda()
+            logger.info(f"成功加载新模型: {model_path}")
+        except Exception as e:
+            logger.error(f"新模型加载失败: {str(e)}")
+            raise ModelError(f"新模型加载失败: {str(e)}")
+
+    def get_model_info(self) -> Dict[str, Any]:
+        """
+        获取模型信息
+
+        Returns:
+            包含模型信息的字典
+        """
+        return {
+            "model_path": str(self.model_path),
+            "parameters": self.params,
+            "device": str(next(self.model.parameters()).device),
+        }
+
+
+class ResNetModel(BaseResNetModel):
+    """专注于分类任务的ResNet模型"""
+
+    def __init__(
+        self,
+        model_path: Union[str, Path],
+        params: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(model_path, params)
+
+    def classify(
+        self, image_data: Union[bytes, List[bytes]], batch_size: int = 1
+    ) -> List[Dict[str, Any]]:
+        """
+        进行分类推理，支持单张图片和批量图片
+
+        Args:
+            image_data: 输入图片（二进制）或图片列表
+            batch_size: 批处理大小
+
+        Returns:
+            解析后的分类结果列表
+        """
+        results = self.predict(image_data, batch_size)
+        return self._parse_resnet_results(results)
+
+    def _parse_resnet_results(self, results: List[Any]) -> List[Dict[str, Any]]:
+        """
+        解析ResNet推理结果
+
+        Args:
+            results: ResNet 推理结果
+
+        Returns:
+            解析后的结果列表
+        """
+        parsed_results = []
+        for result in results:
+            # 获取预测的类别和置信度
+            probs = torch.softmax(result, dim=1)
+            top5_probs, top5_indices = torch.topk(probs, 5)
+
+            result_info = {
+                "type": "resnet",
+                "class_id": int(top5_indices[0][0]),
+                "class_name": f"class_{int(top5_indices[0][0])}",  # 需要根据实际情况映射类别名称
+                "confidence": float(top5_probs[0][0]),
+                "top5": [
+                    {
+                        "class_name": f"class_{int(idx)}",  # 需要根据实际情况映射类别名称
+                        "confidence": float(prob),
+                    }
+                    for idx, prob in zip(top5_indices[0], top5_probs[0])
+                ],
+            }
+            parsed_results.append(result_info)
+        return parsed_results

@@ -3,7 +3,7 @@ from typing import Dict, Optional, Any
 import hashlib
 import threading
 
-from common.models.base_model import DetectYOLOModel, ClassifyYOLOModel
+from common.models.base_model import DetectYOLOModel, ClassifyYOLOModel, ResNetModel
 from common.models.database import Database
 from common.utils.logger import log_manager
 
@@ -29,6 +29,7 @@ class ModelManager:
         if not hasattr(self, "_initialized"):
             self._detect_models: Dict[str, DetectYOLOModel] = {}
             self._classify_models: Dict[str, ClassifyYOLOModel] = {}
+            self._resnet_models: Dict[str, ResNetModel] = {}
             self._db = Database()
             self._model_locks: Dict[str, threading.Lock] = {}  # 每个模型的操作锁
             self._initialized = True
@@ -125,12 +126,43 @@ class ModelManager:
                             f"加载分类模型 {version} 失败: {str(e)}", exc_info=True
                         )
 
-                if not self._detect_models and not self._classify_models:
+                # 加载ResNet模型
+                for version in models["resnet"]:
+                    try:
+                        logger.info(f"开始加载ResNet模型: {version}")
+                        model_data = self._db.get_model(version, "resnet")
+                        logger.info(f"获取到的模型数据: {model_data}")
+
+                        if model_data and Path(model_data["file_path"]).exists():
+                            logger.info(f"模型文件存在: {model_data['file_path']}")
+                            model_data["parameters"] = model_data.get("parameters", {})
+                            logger.info(
+                                f"准备加载模型，参数: {model_data['parameters']}"
+                            )
+                            self._resnet_models[version] = ResNetModel(
+                                model_data["file_path"], model_data["parameters"]
+                            )
+                            logger.info(f"成功加载ResNet模型: {version}")
+                        else:
+                            logger.warning(
+                                f"ResNet模型文件不存在: {version}, 路径: {model_data['file_path'] if model_data else 'None'}"
+                            )
+                    except Exception as e:
+                        logger.error(
+                            f"加载ResNet模型 {version} 失败: {str(e)}", exc_info=True
+                        )
+
+                if (
+                    not self._detect_models
+                    and not self._classify_models
+                    and not self._resnet_models
+                ):
                     logger.warning("未找到任何模型文件")
                 else:
                     logger.info(
                         f"模型加载完成，检测模型: {list(self._detect_models.keys())}, "
-                        f"分类模型: {list(self._classify_models.keys())}"
+                        f"分类模型: {list(self._classify_models.keys())}, "
+                        f"ResNet模型: {list(self._resnet_models.keys())}"
                     )
 
             except Exception as e:
@@ -183,6 +215,12 @@ class ModelManager:
         with self._get_model_lock(model_key):
             return self._classify_models.get(version)
 
+    def get_resnet_model(self, version: str) -> Optional[ResNetModel]:
+        """获取指定版本的ResNet模型（线程安全）"""
+        model_key = f"resnet_{version}"
+        with self._get_model_lock(model_key):
+            return self._resnet_models.get(version)
+
     def get_available_versions(self) -> Dict[str, list]:
         """获取所有可用的模型版本"""
         return self._db.get_all_models()
@@ -197,6 +235,8 @@ class ModelManager:
                     self._detect_models.pop(version, None)
                 elif model_type == "classify":
                     self._classify_models.pop(version, None)
+                elif model_type == "resnet":
+                    self._resnet_models.pop(version, None)
                 return True
             return False
         except Exception as e:
