@@ -153,7 +153,7 @@ class ModelManager:
                                                 f"成功加载YOLO分类模型: {model_name}-{version}"
                                             )
 
-                                elif model_type == "resnet":
+                                elif model_type == "resnet18":
                                     if model_name not in self._resnet_models:
                                         self._resnet_models[model_name] = {}
                                     self._resnet_models[model_name][version] = (

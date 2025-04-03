@@ -137,7 +137,7 @@ def classify_controller(model_name: str, version: str):
 
     Form-data:
         image: 植物图像
-        model_type: 模型类型，可选 "yolo" 或 "resnet"
+        model_type: 模型类型，可选 "yolo" 或 "resnet18"
     """
     try:
         # 检查请求大小
@@ -162,7 +162,7 @@ def classify_controller(model_name: str, version: str):
 
         # 获取模型类型（可选，默认为yolo）
         model_type = request.form.get("model_type", "yolo")
-        if model_type not in ["yolo", "resnet"]:
+        if model_type not in ["yolo", "resnet18"]:
             return ApiResponse.bad_request("不支持的模型类型，仅支持yolo和resnet")
 
         # 读取图片数据

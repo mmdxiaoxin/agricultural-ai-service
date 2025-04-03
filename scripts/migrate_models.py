@@ -53,7 +53,7 @@ DEFAULT_MODEL_CONFIGS: Dict[str, Dict[str, Any]] = {
         "versions": {
             "1.0.0": {
                 "tasks": ["classify"],
-                "path": Config.WEIGHT_DIR / "resnet" / "best_model.pth",
+                "path": Config.WEIGHT_DIR / "resnet18" / "best_model.pth",
                 "description": "ResNet18图像分类模型",
                 "parameters": {"img_size": 224, "half": True},
             }

@@ -784,7 +784,7 @@ class ResNetModel:
             top5_labels = [class_names.get(idx, f"class_{idx}") for idx in top5_indices]
 
             result_info = {
-                "type": "resnet",
+                "type": "resnet18",
                 "class_id": top1_index,
                 "class_name": top1_label,
                 "confidence": top1_confidence,
@@ -823,5 +823,5 @@ class ResNetModel:
         return {
             "model_path": str(self.model_path),
             "parameters": self.params,
-            "type": "resnet",
+            "type": "resnet18",
         }

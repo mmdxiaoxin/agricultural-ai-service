@@ -66,7 +66,7 @@ class AIService:
             model_name: 模型名称
             version: 模型版本
             image_data: 图片数据
-            model_type: 模型类型，可选 "yolo" 或 "resnet"
+            model_type: 模型类型，可选 "yolo" 或 "resnet18"
 
         Returns:
             推理结果列表
