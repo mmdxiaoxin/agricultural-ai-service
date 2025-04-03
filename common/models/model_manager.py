@@ -4,7 +4,7 @@ import hashlib
 import threading
 
 from common.models.base_model import DetectYOLOModel, ClassifyYOLOModel, ResNetModel
-from common.models.database import ModelDB, VersionDB, TaskDB, DatabaseUtils
+from common.database import ModelDB, VersionDB, TaskDB, DatabaseUtils
 from common.utils.logger import log_manager
 
 # 获取日志记录器

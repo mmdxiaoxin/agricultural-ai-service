@@ -1,7 +1,7 @@
 from typing import Optional
 
 from common.models.model_manager import ModelManager
-from common.models.database import Database
+from common.database import ModelDB, VersionDB, TaskDB, DatabaseUtils
 from common.utils.redis_utils import RedisClient
 from services.ai_service import AIService
 from common.utils.logger import log_manager
@@ -26,7 +26,10 @@ class ServiceInitializer:
             self._model_manager: Optional[ModelManager] = None
             self._ai_service: Optional[AIService] = None
             self._redis_client: Optional[RedisClient] = None
-            self._database: Optional[Database] = None
+            self._model_db: Optional[ModelDB] = None
+            self._version_db: Optional[VersionDB] = None
+            self._task_db: Optional[TaskDB] = None
+            self._db_utils: Optional[DatabaseUtils] = None
 
     def init_all(self):
         """初始化所有服务组件"""
@@ -61,7 +64,10 @@ class ServiceInitializer:
     def _init_database(self):
         """初始化数据库"""
         try:
-            self._database = Database()
+            self._model_db = ModelDB()
+            self._version_db = VersionDB()
+            self._task_db = TaskDB()
+            self._db_utils = DatabaseUtils()
             logger.info("数据库初始化成功")
         except Exception as e:
             logger.error(f"数据库初始化失败: {str(e)}")
@@ -110,12 +116,36 @@ class ServiceInitializer:
         return self._redis_client
 
     @property
-    def database(self) -> Database:
-        """获取数据库实例"""
-        if self._database is None:
+    def model_db(self) -> ModelDB:
+        """获取模型数据库实例"""
+        if self._model_db is None:
             self._init_database()
-        assert self._database is not None
-        return self._database
+        assert self._model_db is not None
+        return self._model_db
+
+    @property
+    def version_db(self) -> VersionDB:
+        """获取版本数据库实例"""
+        if self._version_db is None:
+            self._init_database()
+        assert self._version_db is not None
+        return self._version_db
+
+    @property
+    def task_db(self) -> TaskDB:
+        """获取任务数据库实例"""
+        if self._task_db is None:
+            self._init_database()
+        assert self._task_db is not None
+        return self._task_db
+
+    @property
+    def db_utils(self) -> DatabaseUtils:
+        """获取数据库工具实例"""
+        if self._db_utils is None:
+            self._init_database()
+        assert self._db_utils is not None
+        return self._db_utils
 
 
 # 创建全局初始化器实例

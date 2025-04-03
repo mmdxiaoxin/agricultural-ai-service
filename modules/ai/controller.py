@@ -17,7 +17,7 @@ logger = log_manager.get_logger(__name__)
 
 # 使用ServiceInitializer中的实例
 ai_service = initializer.ai_service
-db = initializer.database
+db = initializer.model_db
 
 
 def detect_controller(model_name: str, version: str):
