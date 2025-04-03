@@ -4,7 +4,7 @@ import hashlib
 import threading
 
 from common.models.base_model import DetectYOLOModel, ClassifyYOLOModel, ResNetModel
-from common.models.database import Database
+from common.models.database import ModelDB, VersionDB, TaskDB, DatabaseUtils
 from common.utils.logger import log_manager
 
 # 获取日志记录器
@@ -34,12 +34,18 @@ class ModelManager:
             self._resnet_models: Dict[str, Dict[str, ResNetModel]] = (
                 {}
             )  # model_name -> version -> model
-            self._db = Database()
+
+            # 初始化数据库操作类
+            self._model_db = ModelDB()
+            self._version_db = VersionDB()
+            self._task_db = TaskDB()
+            self._db_utils = DatabaseUtils()
+
             self._model_locks: Dict[str, threading.Lock] = {}  # 每个模型的操作锁
             self._initialized = True
 
             # 验证数据库数据完整性
-            if not self._db.verify_model_data():
+            if not self._db_utils.verify_model_data():
                 logger.error("数据库验证失败，模型数据可能不完整")
 
             self._load_models()
@@ -65,7 +71,7 @@ class ModelManager:
         with self._lock:
             try:
                 # 获取所有模型元数据
-                models = self._db.get_all_models()
+                models = self._model_db.get_all_models()
                 if not models:
                     logger.warning("数据库中没有找到任何模型")
                     return
@@ -96,7 +102,7 @@ class ModelManager:
 
                         try:
                             logger.info(f"开始加载模型: {model_name}-{version}")
-                            model_data = self._db.get_model(model_name, version)
+                            model_data = self._model_db.get_model(model_name, version)
 
                             if not model_data:
                                 logger.warning(
@@ -205,7 +211,7 @@ class ModelManager:
             file_size = file_path.stat().st_size
 
             # 添加到数据库
-            if self._db.add_model(
+            if self._model_db.add_model(
                 name=name,
                 version=version,
                 task_type=task_type,
@@ -231,7 +237,7 @@ class ModelManager:
         model_key = f"{model_name}_{version}_{task_type}"
         with self._get_model_lock(model_key):
             # 从数据库获取模型信息
-            model_data = self._db.get_model(model_name, version)
+            model_data = self._model_db.get_model(model_name, version)
             if not model_data:
                 logger.warning(f"未找到模型: {model_name}-{version}")
                 return None
@@ -268,7 +274,7 @@ class ModelManager:
         model_key = f"{model_name}_{version}"
         with self._get_model_lock(model_key):
             # 从数据库获取模型信息
-            model_data = self._db.get_model(model_name, version)
+            model_data = self._model_db.get_model(model_name, version)
             if not model_data:
                 logger.warning(f"未找到模型: {model_name}-{version}")
                 return None
@@ -291,13 +297,13 @@ class ModelManager:
 
     def get_available_versions(self) -> Dict[str, list]:
         """获取所有可用的模型版本"""
-        return self._db.get_all_models()
+        return self._model_db.get_all_models()
 
     def delete_model(self, name: str, version: str) -> bool:
         """删除指定版本的模型"""
         try:
             # 从数据库中删除元数据
-            if self._db.delete_model(name, version):
+            if self._model_db.delete_model(name, version):
                 # 重新加载模型
                 self._load_models()
                 return True
@@ -308,14 +314,14 @@ class ModelManager:
 
     def get_model_by_id(self, model_id: int) -> Optional[Dict[str, Any]]:
         """根据ID获取模型信息"""
-        return self._db.get_model_by_id(model_id)
+        return self._model_db.get_model_by_id(model_id)
 
     def update_model_parameters(
         self, model_id: int, parameters: Dict[str, Any]
     ) -> bool:
         """更新模型参数"""
-        return self._db.update_model_parameters(model_id, parameters)
+        return self._version_db.update_version_parameters(model_id, parameters)
 
     def delete_model_by_id(self, model_id: int) -> bool:
         """根据ID删除模型"""
-        return self._db.delete_model_by_id(model_id)
+        return self._model_db.delete_model_by_id(model_id)

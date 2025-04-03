@@ -116,27 +116,6 @@ class Config:
         return model_type in cls.MODEL_TYPES
 
     @classmethod
-    def get_model_config(cls, version: str) -> Dict[str, Any]:
-        """获取指定版本的模型配置"""
-        from common.models.database import Database
-
-        db = Database()
-        model_data = db.get_model(version, "detect") or db.get_model(
-            version, "classify"
-        )
-        if not model_data:
-            raise ValueError(f"未找到模型版本: {version}")
-        return model_data
-
-    @classmethod
-    def get_all_model_versions(cls) -> Dict[str, list]:
-        """获取所有可用的模型版本"""
-        from common.models.database import Database
-
-        db = Database()
-        return db.get_all_models()
-
-    @classmethod
     def validate_file_extension(cls, filename: str) -> bool:
         """验证文件扩展名"""
         return (

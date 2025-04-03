@@ -1,115 +1,14 @@
-import sqlite3
-from pathlib import Path
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 from common.utils.logger import log_manager
-from config.app_config import Config
+from .base import DatabaseBase
 
 # 获取日志记录器
 logger = log_manager.get_logger(__name__)
 
 
-class Database:
-    """数据库操作类"""
-
-    def __init__(self, db_path: str = "models.db"):
-        # 确保 data 目录存在
-        data_dir = Config.BASE_DIR / "data"
-        data_dir.mkdir(parents=True, exist_ok=True)
-
-        # 设置数据库文件路径
-        self.db_path = str(data_dir / db_path)
-        self._init_db()
-
-    def _init_db(self):
-        """初始化数据库表"""
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-
-                # 创建模型基本信息表
-                cursor.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS models (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        name TEXT NOT NULL,
-                        model_type TEXT NOT NULL,  -- yolo, resnet等
-                        description TEXT,
-                        created_at TIMESTAMP NOT NULL,
-                        updated_at TIMESTAMP NOT NULL,
-                        UNIQUE(name)
-                    )
-                """
-                )
-
-                # 创建模型版本表
-                cursor.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS versions (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        model_id INTEGER NOT NULL,
-                        version TEXT NOT NULL,
-                        file_path TEXT NOT NULL,
-                        file_size INTEGER NOT NULL,
-                        file_hash TEXT NOT NULL,
-                        parameters TEXT,
-                        created_at TIMESTAMP NOT NULL,
-                        updated_at TIMESTAMP NOT NULL,
-                        FOREIGN KEY (model_id) REFERENCES models(id),
-                        UNIQUE(model_id, version)
-                    )
-                """
-                )
-
-                # 创建任务类型表
-                cursor.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS tasks (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        name TEXT NOT NULL,
-                        description TEXT,
-                        created_at TIMESTAMP NOT NULL,
-                        updated_at TIMESTAMP NOT NULL,
-                        UNIQUE(name)
-                    )
-                """
-                )
-
-                # 创建版本-任务关联表
-                cursor.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS version_tasks (
-                        version_id INTEGER NOT NULL,
-                        task_id INTEGER NOT NULL,
-                        created_at TIMESTAMP NOT NULL,
-                        PRIMARY KEY (version_id, task_id),
-                        FOREIGN KEY (version_id) REFERENCES versions(id),
-                        FOREIGN KEY (task_id) REFERENCES tasks(id)
-                    )
-                """
-                )
-
-                # 插入默认任务类型
-                default_tasks = [
-                    ("detect", "目标检测任务"),
-                    ("classify", "图像分类任务"),
-                ]
-                cursor.execute("SELECT COUNT(*) FROM tasks")
-                if cursor.fetchone()[0] == 0:
-                    now = datetime.now()
-                    cursor.executemany(
-                        """
-                        INSERT INTO tasks (name, description, created_at, updated_at)
-                        VALUES (?, ?, ?, ?)
-                        """,
-                        [(name, desc, now, now) for name, desc in default_tasks],
-                    )
-
-                conn.commit()
-                logger.info(f"数据库初始化成功: {self.db_path}")
-        except Exception as e:
-            logger.error(f"数据库初始化失败: {str(e)}")
-            raise
+class ModelDB(DatabaseBase):
+    """模型数据库操作类"""
 
     def add_model(
         self,
@@ -124,9 +23,9 @@ class Database:
     ) -> bool:
         """添加模型及其版本信息"""
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with self.get_connection() as conn:
                 cursor = conn.cursor()
-                now = datetime.now()
+                now = self.get_current_timestamp()
 
                 # 从名称中提取模型类型
                 model_type = name.split("_")[0].lower()  # yolo或resnet
@@ -195,7 +94,7 @@ class Database:
     def get_model(self, name: str, version: str) -> Optional[Dict[str, Any]]:
         """获取模型信息"""
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with self.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
@@ -264,7 +163,7 @@ class Database:
     def get_all_models(self) -> Dict[str, List[Dict[str, Any]]]:
         """获取所有模型信息"""
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with self.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
@@ -330,7 +229,7 @@ class Database:
     def delete_model(self, name: str, version: str) -> bool:
         """删除模型版本"""
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with self.get_connection() as conn:
                 cursor = conn.cursor()
 
                 # 1. 获取版本ID
@@ -378,32 +277,10 @@ class Database:
             logger.error(f"删除模型版本失败: {str(e)}")
             return False
 
-    def update_model_parameters(
-        self, model_id: int, parameters: Dict[str, Any]
-    ) -> bool:
-        """更新模型参数"""
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute(
-                    """
-                    UPDATE versions 
-                    SET parameters = ?, updated_at = ?
-                    WHERE model_id = ?
-                    """,
-                    (str(parameters), datetime.now(), model_id),
-                )
-                conn.commit()
-                logger.info(f"成功更新模型参数: ID={model_id}")
-                return True
-        except Exception as e:
-            logger.error(f"更新模型参数失败: {str(e)}")
-            return False
-
     def delete_model_by_id(self, model_id: int) -> bool:
         """根据ID删除模型"""
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with self.get_connection() as conn:
                 cursor = conn.cursor()
 
                 # 1. 获取版本ID
@@ -441,7 +318,7 @@ class Database:
     def get_model_by_id(self, model_id: int) -> Optional[Dict[str, Any]]:
         """根据ID获取模型信息"""
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with self.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
                     """
@@ -482,57 +359,3 @@ class Database:
         except Exception as e:
             logger.error(f"获取模型信息失败: {str(e)}")
             return None
-
-    def verify_model_data(self) -> bool:
-        """验证数据库中的模型数据完整性"""
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-
-                # 检查模型表
-                cursor.execute("SELECT * FROM models")
-                models = cursor.fetchall()
-                logger.info(f"模型表中有 {len(models)} 条记录")
-                for model in models:
-                    logger.info(f"模型记录: {model}")
-
-                # 检查版本表
-                cursor.execute("SELECT * FROM versions")
-                versions = cursor.fetchall()
-                logger.info(f"版本表中有 {len(versions)} 条记录")
-                for version in versions:
-                    logger.info(f"版本记录: {version}")
-
-                # 检查任务表
-                cursor.execute("SELECT * FROM tasks")
-                tasks = cursor.fetchall()
-                logger.info(f"任务表中有 {len(tasks)} 条记录")
-                for task in tasks:
-                    logger.info(f"任务记录: {task}")
-
-                # 检查版本-任务关联表
-                cursor.execute("SELECT * FROM version_tasks")
-                version_tasks = cursor.fetchall()
-                logger.info(f"版本-任务关联表中有 {len(version_tasks)} 条记录")
-                for vt in version_tasks:
-                    logger.info(f"版本-任务关联记录: {vt}")
-
-                # 检查数据完整性
-                cursor.execute(
-                    """
-                    SELECT m.name, v.version, COUNT(vt.task_id) as task_count
-                    FROM models m
-                    JOIN versions v ON m.id = v.model_id
-                    LEFT JOIN version_tasks vt ON v.id = vt.version_id
-                    GROUP BY m.id, v.id
-                """
-                )
-                model_stats = cursor.fetchall()
-                logger.info("模型统计信息:")
-                for stat in model_stats:
-                    logger.info(f"模型: {stat[0]}-{stat[1]}, 任务数量: {stat[2]}")
-
-                return True
-        except Exception as e:
-            logger.error(f"验证模型数据失败: {str(e)}")
-            return False
