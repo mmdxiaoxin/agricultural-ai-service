@@ -575,7 +575,7 @@ class ResNetModel:
             self.default_params = {
                 "device": device,
                 "half": True if device != "cpu" else False,
-                "img_size": 224,
+                "img_size": 256,
             }
 
             # 合并默认参数和传入的参数
@@ -587,16 +587,24 @@ class ResNetModel:
             # 加载模型
             logger.info("开始加载ResNet模型...")
             import torch
+            import torch.nn as nn
             import torchvision.models as models
 
-            # 创建ResNet18模型实例
-            self.model = models.resnet18(pretrained=False)
-
             # 加载模型权重
-            state_dict = torch.load(
+            checkpoint = torch.load(
                 str(self.model_path), map_location=self.params["device"]
             )
-            self.model.load_state_dict(state_dict)
+
+            # 获取类别数量
+            num_classes = checkpoint["model_state_dict"]["fc.weight"].size(0)
+            logger.info(f"模型类别数量: {num_classes}")
+
+            # 创建ResNet18模型实例
+            self.model = models.resnet18(weights=None)
+            self.model.fc = nn.Linear(self.model.fc.in_features, num_classes)
+
+            # 加载模型权重
+            self.model.load_state_dict(checkpoint["model_state_dict"])
 
             # 设置为评估模式
             self.model.eval()
@@ -607,6 +615,24 @@ class ResNetModel:
             # 如果使用半精度
             if self.params.get("half", False) and self.params["device"] != "cpu":
                 self.model = self.model.half()
+
+            # 设置图像预处理
+            self.transform = transforms.Compose(
+                [
+                    transforms.Resize(
+                        (self.params["img_size"], self.params["img_size"])
+                    ),
+                    transforms.ToTensor(),
+                    transforms.Normalize(
+                        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                    ),
+                ]
+            )
+
+            # 获取类别映射
+            self.classes = checkpoint.get("classes", None)
+            if self.classes:
+                logger.info(f"加载类别映射，共 {len(self.classes)} 个类别")
 
             logger.info(f"成功加载ResNet模型: {model_path}")
 
@@ -638,24 +664,6 @@ class ResNetModel:
             predict_params.update(kwargs)
             logger.info(f"推理参数: {predict_params}")
 
-            # 导入必要的库
-            import torch
-            import torchvision.transforms as transforms
-            from PIL import Image
-            import io
-
-            # 设置图像预处理
-            preprocess = transforms.Compose(
-                [
-                    transforms.Resize(predict_params.get("img_size", 224)),
-                    transforms.CenterCrop(predict_params.get("img_size", 224)),
-                    transforms.ToTensor(),
-                    transforms.Normalize(
-                        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                    ),
-                ]
-            )
-
             results = []
             # 处理单张或多张图片
             if isinstance(image_data, list):
@@ -668,7 +676,7 @@ class ResNetModel:
                     batch_tensors = []
                     for img_bytes in batch:
                         img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-                        img_tensor = preprocess(img)
+                        img_tensor = self.transform(img)
                         batch_tensors.append(img_tensor)
 
                     # 堆叠为批次
@@ -685,31 +693,34 @@ class ResNetModel:
 
                     # 推理
                     with torch.no_grad():
-                        output = self.model(input_batch)
+                        outputs = self.model(input_batch)
+                        probabilities = torch.nn.functional.softmax(outputs, dim=1)
+                        predicted_probs, predicted_classes = torch.max(probabilities, 1)
 
-                    # 处理每张图片的结果
-                    for out in output:
-                        # 获取预测结果
-                        probabilities = torch.nn.functional.softmax(out, dim=0)
-                        # 获取类别ID和对应概率
-                        top5_prob, top5_indices = torch.topk(probabilities, 5)
+                        # 处理每张图片的结果
+                        for prob, class_idx in zip(predicted_probs, predicted_classes):
+                            class_idx = class_idx.item()
+                            prob = prob.item()
 
-                        result = {
-                            "probs": probabilities,
-                            "top5": top5_indices.cpu().numpy(),
-                            "top5conf": top5_prob.cpu().numpy(),
-                            "top1": top5_indices[0].item(),
-                            "top1conf": top5_prob[0].item(),
-                            "names": self.params.get("class_names", {}),  # 类别名称字典
-                        }
+                            # 获取类别名称
+                            if self.classes:
+                                class_name = self.classes[class_idx]
+                            else:
+                                class_name = f"Class_{class_idx}"
 
-                        results.append(result)
+                            result = {
+                                "class": class_idx,
+                                "class_name": class_name,
+                                "probability": prob,
+                                "type": "resnet18",
+                            }
+                            results.append(result)
             else:
                 # 单张图片处理
                 logger.info("处理单张图片...")
-                img: Image.Image = Image.open(io.BytesIO(image_data)).convert("RGB")
-                img_tensor = torch.as_tensor(preprocess(img), dtype=torch.float32)
-                img_tensor = torch.unsqueeze(img_tensor, 0).to(predict_params["device"])
+                img = Image.open(io.BytesIO(image_data)).convert("RGB")
+                img_tensor = self.transform(img)
+                img_tensor = img_tensor.unsqueeze(0).to(predict_params["device"])  # type: ignore
 
                 # 如果使用半精度
                 if (
@@ -720,23 +731,27 @@ class ResNetModel:
 
                 # 推理
                 with torch.no_grad():
-                    output = self.model(img_tensor)
+                    outputs = self.model(img_tensor)
+                    probabilities = torch.nn.functional.softmax(outputs, dim=1)
+                    predicted_prob, predicted_class = torch.max(probabilities, 1)
 
-                # 获取预测结果
-                probabilities = torch.nn.functional.softmax(output[0], dim=0)
-                # 获取类别ID和对应概率
-                top5_prob, top5_indices = torch.topk(probabilities, 5)
+                    # 获取预测结果
+                    class_idx = predicted_class.item()
+                    prob = predicted_prob.item()
 
-                result = {
-                    "probs": probabilities,
-                    "top5": top5_indices.cpu().numpy(),
-                    "top5conf": top5_prob.cpu().numpy(),
-                    "top1": top5_indices[0].item(),
-                    "top1conf": top5_prob[0].item(),
-                    "names": self.params.get("class_names", {}),  # 类别名称字典
-                }
+                    # 获取类别名称
+                    if self.classes:
+                        class_name = self.classes[class_idx]
+                    else:
+                        class_name = f"Class_{class_idx}"
 
-                results.append(result)
+                    result = {
+                        "class": class_idx,
+                        "class_name": class_name,
+                        "confidence": prob,
+                        "type": "classify",
+                    }
+                    results.append(result)
 
             logger.info(f"ResNet推理完成，结果数量: {len(results)}")
             return results
@@ -758,43 +773,7 @@ class ResNetModel:
         Returns:
             解析后的分类结果列表
         """
-        results = self.predict(image_data, batch_size)
-        return self._parse_resnet_results(results)
-
-    def _parse_resnet_results(self, results: List[Any]) -> List[Dict[str, Any]]:
-        """
-        解析ResNet推理结果
-
-        Args:
-            results: ResNet 推理结果
-
-        Returns:
-            解析后的结果列表
-        """
-        parsed_results = []
-        for result in results:
-            top1_index = result["top1"]
-            class_names = result["names"]
-            top1_label = class_names.get(top1_index, f"class_{top1_index}")
-            top1_confidence = float(result["top1conf"])
-
-            # 获取前5个最可能的类别
-            top5_indices = result["top5"]
-            top5_confidences = result["top5conf"].tolist()
-            top5_labels = [class_names.get(idx, f"class_{idx}") for idx in top5_indices]
-
-            result_info = {
-                "type": "resnet18",
-                "class_id": top1_index,
-                "class_name": top1_label,
-                "confidence": top1_confidence,
-                "top5": [
-                    {"class_name": label, "confidence": float(conf)}
-                    for label, conf in zip(top5_labels, top5_confidences)
-                ],
-            }
-            parsed_results.append(result_info)
-        return parsed_results
+        return self.predict(image_data, batch_size)
 
     def update_params(self, **kwargs) -> None:
         """
@@ -824,4 +803,5 @@ class ResNetModel:
             "model_path": str(self.model_path),
             "parameters": self.params,
             "type": "resnet18",
+            "num_classes": len(self.classes) if self.classes else None,
         }
