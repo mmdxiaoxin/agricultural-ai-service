@@ -540,7 +540,7 @@ class BaseResNetModel:
         return {
             "model_path": str(self.model_path),
             "parameters": self.params,
-            "device": str(next(self.model.parameters()).device),
+            "device": self.model.device,
         }
 
 
@@ -578,17 +578,31 @@ class ResNetModel:
                 "img_size": 224,
             }
 
-            self.params = params or self.default_params.copy()
+            # 合并默认参数和传入的参数
+            self.params = self.default_params.copy()
+            if params:
+                self.params.update(params)
             logger.info(f"模型参数: {self.params}")
 
             # 加载模型
             logger.info("开始加载ResNet模型...")
             import torch
+            import torchvision.models as models
 
-            self.model = torch.load(
+            # 创建ResNet18模型实例
+            self.model = models.resnet18(pretrained=False)
+
+            # 加载模型权重
+            state_dict = torch.load(
                 str(self.model_path), map_location=self.params["device"]
             )
+            self.model.load_state_dict(state_dict)
+
+            # 设置为评估模式
             self.model.eval()
+
+            # 移动到指定设备
+            self.model = self.model.to(self.params["device"])
 
             # 如果使用半精度
             if self.params.get("half", False) and self.params["device"] != "cpu":

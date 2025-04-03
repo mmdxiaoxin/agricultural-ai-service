@@ -134,6 +134,10 @@ def classify_controller(model_name: str, version: str):
     Args:
         model_name: 模型名称
         version: 模型版本
+
+    Form-data:
+        image: 植物图像
+        model_type: 模型类型，可选 "yolo" 或 "resnet"
     """
     try:
         # 检查请求大小
