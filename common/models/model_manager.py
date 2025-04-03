@@ -3,7 +3,8 @@ from typing import Dict, Optional, Any
 import hashlib
 import threading
 
-from common.models.base_model import DetectYOLOModel, ClassifyYOLOModel, ResNetModel
+from common.models.resnet18 import ResNetModel
+from common.models.yolo import DetectYOLOModel, ClassifyYOLOModel
 from common.database import ModelDB, VersionDB, TaskDB, DatabaseUtils
 from common.utils.logger import log_manager
 
