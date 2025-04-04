@@ -3,8 +3,8 @@ from typing import Dict, Optional, Any
 import hashlib
 import threading
 
-from common.models.resnet18 import ResNetModel
-from common.models.yolo import DetectYOLOModel, ClassifyYOLOModel
+from common.models.resnet_model import ResNetModel
+from common.models.yolo_model import DetectYOLOModel, ClassifyYOLOModel
 from common.database import ModelDB, VersionDB, TaskDB, DatabaseUtils
 from common.utils.logger import log_manager
 
@@ -160,17 +160,20 @@ class ModelManager:
                                                 f"成功加载YOLO分类模型: {model_name}-{version}"
                                             )
 
-                                elif model_type == "resnet18":
+                                elif model_type.startswith("resnet"):
                                     if model_name not in self._resnet_models:
                                         self._resnet_models[model_name] = {}
+                                    # 从模型名称中提取ResNet版本
+                                    resnet_version = model_type
                                     self._resnet_models[model_name][version] = (
                                         ResNetModel(
                                             model_data["file_path"],
-                                            model_data["parameters"],
+                                            version=resnet_version,
+                                            params=model_data["parameters"],
                                         )
                                     )
                                     logger.info(
-                                        f"成功加载ResNet模型: {model_name}-{version}"
+                                        f"成功加载ResNet模型: {model_name}-{version} ({resnet_version})"
                                     )
                             else:
                                 logger.warning(
@@ -289,9 +292,13 @@ class ModelManager:
             if model_name not in self._resnet_models:
                 self._resnet_models[model_name] = {}
             if version not in self._resnet_models[model_name]:
+                # 从模型名称中提取ResNet版本
+                resnet_version = model_name.split("_")[0].lower()
                 # 加载模型
                 self._resnet_models[model_name][version] = ResNetModel(
-                    model_data["file_path"], model_data["parameters"]
+                    model_data["file_path"],
+                    version=resnet_version,
+                    params=model_data["parameters"],
                 )
 
             return self._resnet_models[model_name][version]
