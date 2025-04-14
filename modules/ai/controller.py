@@ -157,11 +157,6 @@ def classify_controller(model_name: str, version: str):
         if not Config.validate_file_extension(image_file.filename):
             return ApiResponse.bad_request("不支持的文件类型，仅支持PNG和JPG格式")
 
-        # 从模型名称中提取模型类型
-        model_type = model_name.split("_")[0].lower()
-        if model_type not in ["yolo", "resnet"]:
-            return ApiResponse.bad_request("不支持的模型类型，仅支持yolo和resnet")
-
         # 读取图片数据
         image_data = image_file.read()
 
