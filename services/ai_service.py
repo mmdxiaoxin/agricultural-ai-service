@@ -57,7 +57,7 @@ class AIService:
             return None
 
     def classify(
-        self, model_name: str, version: str, image_data: bytes, model_type: str = "yolo"
+        self, model_name: str, version: str, image_data: bytes
     ) -> Optional[List[Dict[str, Any]]]:
         """
         使用指定版本的模型进行分类推理
@@ -66,22 +66,22 @@ class AIService:
             model_name: 模型名称
             version: 模型版本
             image_data: 图片数据
-            model_type: 模型类型，可选 "yolo" 或 "resnet"系列（resnet18, resnet34, resnet50, resnet101, resnet152）
 
         Returns:
             推理结果列表
         """
         try:
-            if model_type == "yolo":
-                model = self.model_manager.get_yolo_model(
-                    model_name, version, "classify"
-                )
-            else:
+            # 先尝试获取YOLO模型
+            model = self.model_manager.get_yolo_model(model_name, version, "classify")
+
+            # 如果YOLO模型不存在，尝试获取ResNet模型
+            if not model:
                 model = self.model_manager.get_resnet_model(model_name, version)
 
             if not model:
-                logger.error(f"未找到{model_type}分类模型: {model_name}-{version}")
+                logger.error(f"未找到分类模型: {model_name}-{version}")
                 return None
+
             results = model.classify(image_data)
             if not results or not isinstance(results, list):
                 logger.error("分类结果格式错误")

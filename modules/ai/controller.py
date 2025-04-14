@@ -166,7 +166,7 @@ def classify_controller(model_name: str, version: str):
         image_data = image_file.read()
 
         # 提交异步任务
-        task = classify_task.delay(model_name, version, image_data, model_type)
+        task = classify_task.delay(model_name, version, image_data)
 
         # 返回任务ID
         return ApiResponse.success(
