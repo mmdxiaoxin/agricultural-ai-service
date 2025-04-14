@@ -306,8 +306,8 @@ def upload_model_controller():
         model_version = request.form.get("model_version")
         if not model_version:
             return ApiResponse.bad_request("未提供具体模型版本")
-        if model_type == "yolo" and model_version not in ["v3", "v5", "v8"]:
-            return ApiResponse.bad_request("不支持的YOLO版本，仅支持v3, v5, v8")
+        if model_type == "yolo" and model_version not in ["v5", "v8", "v11"]:
+            return ApiResponse.bad_request("不支持的YOLO版本，仅支持v5, v8, v11")
         if model_type == "resnet" and model_version not in [
             "18",
             "34",
