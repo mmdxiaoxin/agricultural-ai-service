@@ -71,13 +71,8 @@ class AIService:
             推理结果列表
         """
         try:
-            # 先尝试获取YOLO模型
-            model = self.model_manager.get_yolo_model(model_name, version, "classify")
-
-            # 如果YOLO模型不存在，尝试获取ResNet模型
-            if not model:
-                model = self.model_manager.get_resnet_model(model_name, version)
-
+            # 直接获取模型
+            model = self.model_manager.get_model(model_name, version, "classify")
             if not model:
                 logger.error(f"未找到分类模型: {model_name}-{version}")
                 return None

@@ -335,3 +335,81 @@ class ModelManager:
     def get_model_by_hash(self, file_hash: str) -> Optional[Dict[str, Any]]:
         """根据文件哈希获取模型信息"""
         return self._model_db.get_model_by_hash(file_hash)
+
+    def get_model(
+        self, model_name: str, version: str, task_type: Optional[str] = None
+    ) -> Optional[Any]:
+        """
+        根据模型名称直接获取模型（线程安全）
+
+        Args:
+            model_name: 模型名称
+            version: 模型版本
+            task_type: 任务类型（可选，仅用于YOLO模型）
+
+        Returns:
+            对应的模型实例
+        """
+        model_key = f"{model_name}_{version}"
+        with self._get_model_lock(model_key):
+            # 从数据库获取模型信息
+            model_data = self._model_db.get_model(model_name, version)
+            if not model_data:
+                logger.warning(f"未找到模型: {model_name}-{version}")
+                return None
+
+            # 根据模型名称判断模型类型
+            if model_name.startswith("resnet"):
+                # 检查任务类型是否支持
+                if "classify" not in model_data["task_types"]:
+                    logger.warning(f"模型 {model_name}-{version} 不支持分类任务")
+                    return None
+
+                # 获取或加载ResNet模型
+                if model_name not in self._resnet_models:
+                    self._resnet_models[model_name] = {}
+                if version not in self._resnet_models[model_name]:
+                    # 从模型名称中提取ResNet版本
+                    resnet_version = model_name.split("_")[0].lower()
+                    # 加载模型
+                    self._resnet_models[model_name][version] = ResNetModel(
+                        model_data["file_path"],
+                        version=resnet_version,
+                        params=model_data["parameters"],
+                    )
+                return self._resnet_models[model_name][version]
+            else:
+                # 检查任务类型是否支持
+                if task_type and task_type not in model_data["task_types"]:
+                    logger.warning(
+                        f"模型 {model_name}-{version} 不支持任务类型: {task_type}"
+                    )
+                    return None
+
+                # 获取或加载YOLO模型
+                if model_name not in self._yolo_models:
+                    self._yolo_models[model_name] = {}
+                if version not in self._yolo_models[model_name]:
+                    self._yolo_models[model_name][version] = {}
+                if (
+                    task_type
+                    and task_type not in self._yolo_models[model_name][version]
+                ):
+                    # 加载模型
+                    if task_type == "detect":
+                        self._yolo_models[model_name][version][task_type] = (
+                            DetectYOLOModel(
+                                model_data["file_path"], model_data["parameters"]
+                            )
+                        )
+                    elif task_type == "classify":
+                        self._yolo_models[model_name][version][task_type] = (
+                            ClassifyYOLOModel(
+                                model_data["file_path"], model_data["parameters"]
+                            )
+                        )
+                return (
+                    self._yolo_models[model_name][version].get(task_type)
+                    if task_type
+                    else None
+                )
