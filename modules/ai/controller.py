@@ -133,12 +133,8 @@ def classify_controller(model_name: str, version: str):
     接收植物图像，进行分类推理
 
     Args:
-        model_name: 模型名称
+        model_name: 模型名称（如yolo_v8, resnet50）
         version: 模型版本
-
-    Form-data:
-        image: 植物图像
-        model_type: 模型类型，可选 "yolo" 或 "resnet"系列（resnet18, resnet34, resnet50, resnet101, resnet152）
     """
     try:
         # 检查请求大小
@@ -161,17 +157,10 @@ def classify_controller(model_name: str, version: str):
         if not Config.validate_file_extension(image_file.filename):
             return ApiResponse.bad_request("不支持的文件类型，仅支持PNG和JPG格式")
 
-        # 获取模型类型（可选，默认为yolo）
-        model_type = request.form.get("model_type", "yolo")
-        if model_type not in [
-            "yolo",
-            "resnet18",
-            "resnet34",
-            "resnet50",
-            "resnet101",
-            "resnet152",
-        ]:
-            return ApiResponse.bad_request("不支持的模型类型，仅支持yolo和resnet系列")
+        # 从模型名称中提取模型类型
+        model_type = model_name.split("_")[0].lower()
+        if model_type not in ["yolo", "resnet"]:
+            return ApiResponse.bad_request("不支持的模型类型，仅支持yolo和resnet")
 
         # 读取图片数据
         image_data = image_file.read()
