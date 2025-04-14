@@ -91,11 +91,11 @@ class Config:
             directory.mkdir(parents=True, exist_ok=True)
 
     @classmethod
-    def get_model_path(cls, version: str, model_type: str) -> Path:
+    def get_model_path(cls, filename: str) -> Path:
         """获取模型文件保存路径"""
-        model_dir = cls.WEIGHT_DIR / version
-        model_dir.mkdir(parents=True, exist_ok=True)
-        return model_dir / f"{model_type}-best.pt"
+        # 确保weight目录存在
+        cls.WEIGHT_DIR.mkdir(parents=True, exist_ok=True)
+        return cls.WEIGHT_DIR / filename
 
     @classmethod
     def validate_model_extension(cls, filename: str) -> bool:

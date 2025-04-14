@@ -202,6 +202,8 @@ class ModelManager:
         version: str,
         task_type: str,
         file_path: Path,
+        file_size: int,
+        file_hash: str,
         parameters: Optional[Dict[str, Any]] = None,
         description: Optional[str] = None,
     ) -> bool:
@@ -209,10 +211,6 @@ class ModelManager:
         try:
             if not file_path.exists():
                 raise FileNotFoundError(f"模型文件不存在: {file_path}")
-
-            # 计算文件哈希
-            file_hash = self._calculate_file_hash(file_path)
-            file_size = file_path.stat().st_size
 
             # 添加到数据库
             if self._model_db.add_model(
@@ -333,3 +331,7 @@ class ModelManager:
     def delete_model_by_id(self, model_id: int) -> bool:
         """根据ID删除模型"""
         return self._model_db.delete_model_by_id(model_id)
+
+    def get_model_by_hash(self, file_hash: str) -> Optional[Dict[str, Any]]:
+        """根据文件哈希获取模型信息"""
+        return self._model_db.get_model_by_hash(file_hash)

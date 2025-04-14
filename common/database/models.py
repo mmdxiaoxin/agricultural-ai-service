@@ -359,3 +359,64 @@ class ModelDB(DatabaseBase):
         except Exception as e:
             logger.error(f"获取模型信息失败: {str(e)}")
             return None
+
+    def get_model_by_hash(self, file_hash: str) -> Optional[Dict[str, Any]]:
+        """根据文件哈希获取模型信息"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT 
+                        m.id as model_id,
+                        m.name, 
+                        m.model_type,
+                        m.description, 
+                        m.created_at as model_created_at,
+                        m.updated_at as model_updated_at,
+                        v.id as version_id,
+                        v.version,
+                        v.file_path,
+                        v.file_size,
+                        v.file_hash,
+                        v.parameters,
+                        v.created_at as version_created_at,
+                        v.updated_at as version_updated_at,
+                        GROUP_CONCAT(t.name) as task_types
+                    FROM models m
+                    JOIN versions v ON m.id = v.model_id
+                    LEFT JOIN version_tasks vt ON v.id = vt.version_id
+                    LEFT JOIN tasks t ON vt.task_id = t.id
+                    WHERE v.file_hash = ?
+                    GROUP BY m.id, v.id
+                    """,
+                    (file_hash,),
+                )
+                row = cursor.fetchone()
+
+                if not row:
+                    return None
+
+                try:
+                    return {
+                        "model_id": row[0],
+                        "name": row[1],
+                        "model_type": row[2],
+                        "description": row[3],
+                        "version_id": row[6],
+                        "version": row[7],
+                        "file_path": row[8],
+                        "file_size": row[9],
+                        "file_hash": row[10],
+                        "parameters": eval(row[11]) if row[11] else None,
+                        "task_types": row[14].split(",") if row[14] else [],
+                        "created_at": row[12],
+                        "updated_at": row[13],
+                    }
+                except IndexError as e:
+                    logger.error(f"解析模型数据时出错: {str(e)}, 数据: {row}")
+                    return None
+
+        except Exception as e:
+            logger.error(f"获取模型信息失败: {str(e)}")
+            return None

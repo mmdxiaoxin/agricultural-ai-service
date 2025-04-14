@@ -2,6 +2,7 @@ from flask import request
 from werkzeug.exceptions import RequestEntityTooLarge
 from pathlib import Path
 import hashlib
+import uuid
 
 from services.ai_service import AIService
 from common.utils.response import ApiResponse, ResponseCode
@@ -325,8 +326,21 @@ def upload_model_controller():
                 f"不支持的文件类型，仅支持 {Config.MODEL_ALLOWED_EXTENSIONS} 格式"
             )
 
-        # 获取保存路径
-        save_path = Config.get_model_path(name, version)
+        # 计算文件哈希
+        file_hash = hashlib.sha256(model_file.read()).hexdigest()
+        model_file.seek(0)  # 重置文件指针位置
+
+        # 检查是否已存在相同哈希的模型
+        existing_model = ai_service.model_manager.get_model_by_hash(file_hash)
+        if existing_model:
+            return ApiResponse.bad_request(
+                f"该模型文件已存在，模型名称: {existing_model['name']}, 版本: {existing_model['version']}"
+            )
+
+        # 生成UUID文件名并保留原始扩展名
+        original_extension = model_file.filename.rsplit(".", 1)[1].lower()
+        filename = f"{uuid.uuid4()}.{original_extension}"
+        save_path = Config.get_model_path(filename)
 
         # 保存文件
         try:
@@ -336,10 +350,8 @@ def upload_model_controller():
             logger.error(f"保存模型文件失败: {str(e)}")
             return ApiResponse.internal_error("保存模型文件失败")
 
-        # 计算文件哈希
+        # 获取文件大小
         file_size = save_path.stat().st_size
-        with open(save_path, "rb") as f:
-            file_hash = hashlib.sha256(f.read()).hexdigest()
 
         # 设置模型参数
         parameters = {
@@ -356,6 +368,8 @@ def upload_model_controller():
             version=version,
             task_type=task_type,
             file_path=save_path,
+            file_size=file_size,
+            file_hash=file_hash,
             parameters=parameters,
             description=description,
         ):
@@ -371,6 +385,7 @@ def upload_model_controller():
                 "version": version,
                 "task_type": task_type,
                 "path": str(save_path),
+                "file_hash": file_hash,
             },
         )
 
