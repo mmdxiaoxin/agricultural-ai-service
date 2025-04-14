@@ -200,7 +200,7 @@ class ResNetModel:
             result = {
                 "class": class_idx,
                 "class_name": class_name,
-                "probability": prob,
+                "confidence": prob,
                 "type": "classify",
             }
             results.append(result)
@@ -238,7 +238,7 @@ class ResNetModel:
         return {
             "class": class_idx,
             "class_name": class_name,
-            "probability": prob,
+            "confidence": prob,
             "type": "classify",
         }
 
