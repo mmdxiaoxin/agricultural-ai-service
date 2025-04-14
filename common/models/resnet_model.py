@@ -184,10 +184,12 @@ class ResNetModel:
             outputs = self.model(input_batch)
             probabilities = torch.nn.functional.softmax(outputs, dim=1)
             predicted_probs, predicted_classes = torch.max(probabilities, 1)
+            # 获取top5预测结果
+            top5_probs, top5_indices = torch.topk(probabilities, 5, dim=1)
 
         # 处理每张图片的结果
         results = []
-        for prob, class_idx in zip(predicted_probs, predicted_classes):
+        for i, (prob, class_idx) in enumerate(zip(predicted_probs, predicted_classes)):
             class_idx = class_idx.item()
             prob = prob.item()
 
@@ -197,11 +199,29 @@ class ResNetModel:
             else:
                 class_name = f"Class_{class_idx}"
 
+            # 获取top5预测结果
+            top5_results = []
+            for j in range(5):
+                top5_class_idx = top5_indices[i][j].item()
+                top5_prob = top5_probs[i][j].item()
+                if self.classes:
+                    top5_class_name = self.classes[top5_class_idx]
+                else:
+                    top5_class_name = f"Class_{top5_class_idx}"
+                top5_results.append(
+                    {
+                        "class_id": top5_class_idx,
+                        "class_name": top5_class_name,
+                        "confidence": top5_prob,
+                    }
+                )
+
             result = {
-                "class": class_idx,
+                "class_id": class_idx,
                 "class_name": class_name,
                 "confidence": prob,
                 "type": "classify",
+                "top5": top5_results,
             }
             results.append(result)
 
@@ -224,6 +244,8 @@ class ResNetModel:
             outputs = self.model(img_tensor)
             probabilities = torch.nn.functional.softmax(outputs, dim=1)
             predicted_prob, predicted_class = torch.max(probabilities, 1)
+            # 获取top5预测结果
+            top5_probs, top5_indices = torch.topk(probabilities, 5, dim=1)
 
         # 获取预测结果
         class_idx = predicted_class.item()
@@ -235,11 +257,29 @@ class ResNetModel:
         else:
             class_name = f"Class_{class_idx}"
 
+        # 获取top5预测结果
+        top5_results = []
+        for i in range(5):
+            top5_class_idx = top5_indices[0][i].item()
+            top5_prob = top5_probs[0][i].item()
+            if self.classes:
+                top5_class_name = self.classes[top5_class_idx]
+            else:
+                top5_class_name = f"Class_{top5_class_idx}"
+            top5_results.append(
+                {
+                    "class_id": top5_class_idx,
+                    "class_name": top5_class_name,
+                    "confidence": top5_prob,
+                }
+            )
+
         return {
-            "class": class_idx,
+            "class_id": class_idx,
             "class_name": class_name,
             "confidence": prob,
             "type": "classify",
+            "top5": top5_results,
         }
 
     def classify(
