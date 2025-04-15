@@ -15,7 +15,19 @@ from common.utils.logger import log_manager
 logger = log_manager.get_logger(__name__)
 
 app = Flask(__name__)
-cors = CORS(app)
+
+# 配置CORS
+cors = CORS(
+    app,
+    resources={
+        r"/*": {
+            "origins": AppConfig.CORS_ORIGINS,
+            "methods": AppConfig.CORS_METHODS,
+            "allow_headers": AppConfig.CORS_ALLOW_HEADERS,
+            "supports_credentials": AppConfig.CORS_ALLOW_CREDENTIALS,
+        }
+    },
+)
 
 
 # 请求超时装饰器

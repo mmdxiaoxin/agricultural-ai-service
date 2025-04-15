@@ -29,6 +29,21 @@ class Config:
     PORT = int(os.getenv("PORT", "5000"))
     DEBUG = os.getenv("FLASK_DEBUG", "True").lower() == "true"
 
+    # CORS配置
+    CORS_ORIGINS = os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:3000,http://localhost:5173,http://localhost:8080",
+    ).split(",")
+    CORS_METHODS = os.getenv(
+        "CORS_METHODS", "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS"
+    ).split(",")
+    CORS_ALLOW_HEADERS = os.getenv(
+        "CORS_ALLOW_HEADERS", "Content-Type,Accept,Authorization"
+    ).split(",")
+    CORS_ALLOW_CREDENTIALS = (
+        os.getenv("CORS_ALLOW_CREDENTIALS", "true").lower() == "true"
+    )
+
     # JWT配置
     JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key")
     JWT_ALGORITHM = "HS256"
