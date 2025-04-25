@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>诊断模型配置</title>
+    <link rel="stylesheet" href="{{ url_for('manage.static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>诊断模型配置</h1>
+            <nav>
+                <ul>
+                    <li><a href="{{ url_for('manage.index') }}">首页</a></li>
+                    <li><a href="{{ url_for('manage.model_list') }}">模型列表</a></li>
+                    <li><a href="{{ url_for('manage.model_create') }}">创建模型</a></li>
+                </ul>
+            </nav>
+        </header>
+        
+        <main>
+            <section class="welcome">
+                <h2>欢迎使用模型管理系统</h2>
+                <p>这是一个用于管理AI模型的系统，您可以在这里查看、创建、编辑和删除模型。</p>
+            </section>
+            
+            <section class="features">
+                <div class="feature-card">
+                    <h3>模型列表</h3>
+                    <p>查看所有可用的模型</p>
+                    <a href="{{ url_for('manage.model_list') }}" class="btn">查看列表</a>
+                </div>
+                
+                <div class="feature-card">
+                    <h3>创建模型</h3>
+                    <p>上传新的模型文件</p>
+                    <a href="{{ url_for('manage.model_create') }}" class="btn">创建模型</a>
+                </div>
+            </section>
+        </main>
+        
+        <footer>
+            <p>&copy; 2024 农业AI服务平台</p>
+        </footer>
+    </div>
+    
+    <script src="{{ url_for('manage.static', filename='js/main.js') }}"></script>
+</body>
+</html> 

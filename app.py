@@ -1,11 +1,12 @@
 import time
 from functools import wraps
-from flask import Flask, request
+from flask import Flask, request, send_from_directory
 from flask_cors import CORS
 from werkzeug.exceptions import RequestTimeout
 
 from config import AppConfig
-from modules import modules
+from modules.ai import ai_bp
+from modules.manage import manage_bp
 from common.utils.response import ApiResponse
 from common.utils.redis_utils import RedisClient
 from common.utils.error_handler import error_handler
@@ -28,6 +29,9 @@ cors = CORS(
         }
     },
 )
+
+# 配置API基础URL
+app.config["API_BASE_URL"] = "http://localhost:5000/ai"
 
 
 # 请求超时装饰器
@@ -63,9 +67,10 @@ def log_response_info(response):
     return response
 
 
-# 注册所有模块的路由
-for module in modules:
-    app.register_blueprint(module, url_prefix="/ai")
+# 注册AI模块
+app.register_blueprint(ai_bp, url_prefix="/ai")
+# 注册管理模块
+app.register_blueprint(manage_bp, url_prefix="/manage")
 
 # 注册错误处理器
 error_handler.register_handlers(app)
