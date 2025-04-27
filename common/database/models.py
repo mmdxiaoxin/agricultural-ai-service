@@ -208,11 +208,11 @@ class ModelDB(DatabaseBase):
                         result[name].append(
                             {
                                 "model_id": row[0],
-                                "version": row[5],
                                 "model_type": row[2],
                                 "model_version": row[3],
                                 "description": row[4],
-                                "version_id": row[6],
+                                "version_id": row[5],
+                                "version": row[6],
                                 "file_path": row[7],
                                 "file_size": row[8],
                                 "file_hash": row[9],
