@@ -392,11 +392,6 @@ def upload_model_controller():
         parameters = {
             "conf": 0.25,
             "iou": 0.5 if task_type == "detect" else None,
-            "model_type": model_type,
-            "model_version": model_version,
-            "input_size": input_size,
-            "num_classes": num_classes,
-            "pretrained": request.form.get("pretrained", "false").lower() == "true",
         }
 
         # 获取模型描述
