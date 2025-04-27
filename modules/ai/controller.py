@@ -383,6 +383,7 @@ def upload_model_controller():
             file_size=file_size,
             file_hash=file_hash,
             model_version=model_version,
+            model_type=model_type,
             parameters=parameters,
             description=description,
         ):

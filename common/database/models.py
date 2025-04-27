@@ -19,6 +19,7 @@ class ModelDB(DatabaseBase):
         file_size: int,
         file_hash: str,
         model_version: str,
+        model_type: str,
         parameters: Optional[Dict[str, Any]] = None,
         description: Optional[str] = None,
     ) -> bool:
@@ -27,9 +28,6 @@ class ModelDB(DatabaseBase):
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 now = self.get_current_timestamp()
-
-                # 从名称中提取模型类型
-                model_type = name.split("_")[0].lower()  # yolo或resnet
 
                 # 1. 添加或获取模型基本信息
                 cursor.execute(
