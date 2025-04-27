@@ -380,6 +380,7 @@ def upload_model_controller():
             file_path=save_path,
             file_size=file_size,
             file_hash=file_hash,
+            model_version=model_version,
             parameters=parameters,
             description=description,
         ):

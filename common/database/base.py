@@ -34,6 +34,7 @@ class DatabaseBase:
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         name TEXT NOT NULL,
                         model_type TEXT NOT NULL,  -- yolo, resnet等
+                        model_version TEXT NOT NULL,  -- 具体模型版本（如v8, v5, 18, 50等）
                         description TEXT,
                         created_at TIMESTAMP NOT NULL,
                         updated_at TIMESTAMP NOT NULL,

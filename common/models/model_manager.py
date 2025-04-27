@@ -204,6 +204,7 @@ class ModelManager:
         file_path: Path,
         file_size: int,
         file_hash: str,
+        model_version: str,
         parameters: Optional[Dict[str, Any]] = None,
         description: Optional[str] = None,
     ) -> bool:
@@ -220,6 +221,7 @@ class ModelManager:
                 file_path=str(file_path),
                 file_size=file_size,
                 file_hash=file_hash,
+                model_version=model_version,
                 parameters=parameters,
                 description=description,
             ):

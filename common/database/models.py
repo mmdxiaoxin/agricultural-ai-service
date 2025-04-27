@@ -18,6 +18,7 @@ class ModelDB(DatabaseBase):
         file_path: str,
         file_size: int,
         file_hash: str,
+        model_version: str,
         parameters: Optional[Dict[str, Any]] = None,
         description: Optional[str] = None,
     ) -> bool:
@@ -34,10 +35,10 @@ class ModelDB(DatabaseBase):
                 cursor.execute(
                     """
                     INSERT OR IGNORE INTO models 
-                    (name, model_type, description, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?)
+                    (name, model_type, model_version, description, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
                     """,
-                    (name, model_type, description, now, now),
+                    (name, model_type, model_version, description, now, now),
                 )
 
                 # 获取模型ID
@@ -102,6 +103,7 @@ class ModelDB(DatabaseBase):
                         m.id as model_id,
                         m.name, 
                         m.model_type,
+                        m.model_version,
                         m.description, 
                         m.created_at as model_created_at,
                         m.updated_at as model_updated_at,
@@ -141,16 +143,17 @@ class ModelDB(DatabaseBase):
                         "model_id": row[0],
                         "name": row[1],
                         "model_type": row[2],
-                        "description": row[3],
-                        "version_id": row[6],
-                        "version": row[7],
-                        "file_path": row[8],
-                        "file_size": row[9],
-                        "file_hash": row[10],
-                        "parameters": eval(row[11]) if row[11] else None,
-                        "task_types": row[14].split(",") if row[14] else [],
-                        "created_at": row[12],
-                        "updated_at": row[13],
+                        "model_version": row[3],
+                        "description": row[4],
+                        "version_id": row[7],
+                        "version": row[8],
+                        "file_path": row[9],
+                        "file_size": row[10],
+                        "file_hash": row[11],
+                        "parameters": eval(row[12]) if row[12] else None,
+                        "task_types": row[15].split(",") if row[15] else [],
+                        "created_at": row[13],
+                        "updated_at": row[14],
                     }
                 except IndexError as e:
                     logger.error(f"解析模型数据时出错: {str(e)}, 数据: {row}")
@@ -171,6 +174,7 @@ class ModelDB(DatabaseBase):
                         m.id as model_id,
                         m.name, 
                         m.model_type,
+                        m.model_version,
                         m.description, 
                         v.id as version_id,
                         v.version,
@@ -206,15 +210,16 @@ class ModelDB(DatabaseBase):
                                 "model_id": row[0],
                                 "version": row[5],
                                 "model_type": row[2],
-                                "description": row[3],
-                                "version_id": row[4],
-                                "file_path": row[6],
-                                "file_size": row[7],
-                                "file_hash": row[8],
-                                "parameters": eval(row[9]) if row[9] else None,
-                                "task_types": row[10].split(",") if row[10] else [],
-                                "created_at": row[11],
-                                "updated_at": row[12],
+                                "model_version": row[3],
+                                "description": row[4],
+                                "version_id": row[6],
+                                "file_path": row[7],
+                                "file_size": row[8],
+                                "file_hash": row[9],
+                                "parameters": eval(row[10]) if row[10] else None,
+                                "task_types": row[11].split(",") if row[11] else [],
+                                "created_at": row[12],
+                                "updated_at": row[13],
                             }
                         )
                     except IndexError as e:
@@ -342,16 +347,17 @@ class ModelDB(DatabaseBase):
                         "model_id": row[0],
                         "name": row[1],
                         "model_type": row[2],
-                        "description": row[3],
-                        "version_id": row[6],
-                        "version": row[8],
-                        "file_path": row[9],
-                        "file_size": row[10],
-                        "file_hash": row[11],
-                        "parameters": eval(row[12]) if row[12] else None,
-                        "task_types": row[17].split(",") if row[17] else [],
-                        "created_at": row[13],
-                        "updated_at": row[14],
+                        "model_version": row[3],
+                        "description": row[4],
+                        "version_id": row[7],
+                        "version": row[9],
+                        "file_path": row[10],
+                        "file_size": row[11],
+                        "file_hash": row[12],
+                        "parameters": eval(row[13]) if row[13] else None,
+                        "task_types": row[18].split(",") if row[18] else [],
+                        "created_at": row[14],
+                        "updated_at": row[15],
                     }
                 except IndexError as e:
                     logger.error(f"解析模型数据时出错: {str(e)}")
@@ -371,6 +377,7 @@ class ModelDB(DatabaseBase):
                         m.id as model_id,
                         m.name, 
                         m.model_type,
+                        m.model_version,
                         m.description, 
                         m.created_at as model_created_at,
                         m.updated_at as model_updated_at,
@@ -402,7 +409,8 @@ class ModelDB(DatabaseBase):
                         "model_id": row[0],
                         "name": row[1],
                         "model_type": row[2],
-                        "description": row[3],
+                        "model_version": row[3],
+                        "description": row[4],
                         "version_id": row[6],
                         "version": row[7],
                         "file_path": row[8],
