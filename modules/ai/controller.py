@@ -267,9 +267,6 @@ def upload_model_controller():
     - task_type: 任务类型（detect/classify）
     - model: 模型文件
     - description: 模型描述（可选）
-    - pretrained: 是否预训练模型（true/false）
-    - input_size: 输入图像尺寸（如640, 224）
-    - num_classes: 类别数量
     """
     try:
         # 获取并验证模型名称
@@ -316,28 +313,6 @@ def upload_model_controller():
             return ApiResponse.bad_request("未提供任务类型")
         if task_type not in ["detect", "classify"]:
             return ApiResponse.bad_request("不支持的任务类型，仅支持detect和classify")
-
-        # 验证输入尺寸
-        input_size = request.form.get("input_size")
-        if not input_size:
-            return ApiResponse.bad_request("未提供输入图像尺寸")
-        try:
-            input_size = int(input_size)
-            if input_size <= 0:
-                return ApiResponse.bad_request("输入图像尺寸必须大于0")
-        except ValueError:
-            return ApiResponse.bad_request("输入图像尺寸必须是整数")
-
-        # 验证类别数量
-        num_classes = request.form.get("num_classes")
-        if not num_classes:
-            return ApiResponse.bad_request("未提供类别数量")
-        try:
-            num_classes = int(num_classes)
-            if num_classes <= 0:
-                return ApiResponse.bad_request("类别数量必须大于0")
-        except ValueError:
-            return ApiResponse.bad_request("类别数量必须是整数")
 
         # 检查请求大小
         if request.content_length and not Config.validate_model_size(
@@ -424,8 +399,6 @@ def upload_model_controller():
                 "model_type": model_type,
                 "model_version": model_version,
                 "task_type": task_type,
-                "input_size": input_size,
-                "num_classes": num_classes,
                 "path": str(save_path),
                 "file_hash": file_hash,
             },
