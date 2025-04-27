@@ -418,6 +418,9 @@ def upload_model_controller():
                 save_path.unlink()
             return ApiResponse.internal_error("保存模型配置失败")
 
+        # 清除缓存
+        RedisClient.delete_cache(Config.MODEL_VERSIONS_CACHE_KEY)
+
         return ApiResponse.success(
             message=f"模型上传成功: {name}-{version}-{task_type}",
             data={
