@@ -1,8 +1,12 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any
+import torch
 import torchvision.models as models
 from common.utils.logger import log_manager
 
 logger = log_manager.get_logger(__name__)
+
+# 确定设备
+device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 
 class ResNetConfig:
@@ -19,7 +23,7 @@ class ResNetConfig:
 
     # 默认配置
     DEFAULT_CONFIG = {
-        "device": "cuda:0",
+        "device": device,
         "half": True,
         "img_size": 256,
         "mean": [0.485, 0.456, 0.406],

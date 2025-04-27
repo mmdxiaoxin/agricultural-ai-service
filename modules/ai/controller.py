@@ -4,9 +4,10 @@ from pathlib import Path
 import hashlib
 import uuid
 
-from services.ai_service import AIService
-from common.utils.response import ApiResponse, ResponseCode
+from common.utils.response import ApiResponse
 from config.app_config import Config
+from config.resnet_config import ResNetConfig
+from config.yolo_config import YOLOConfig
 from common.utils.redis_utils import RedisClient
 from common.utils.tasks import detect_task, classify_task
 from common.init import initializer
@@ -364,10 +365,11 @@ def upload_model_controller():
         file_size = save_path.stat().st_size
 
         # 设置模型参数
-        parameters = {
-            "conf": 0.25,
-            "iou": 0.5 if task_type == "detect" else None,
-        }
+        parameters = {}
+        if model_type == "yolo":
+            parameters = YOLOConfig.get_default_config()
+        elif model_type == "resnet":
+            parameters = ResNetConfig.get_default_config(model_version)
 
         # 获取模型描述
         description = request.form.get("description", "")
