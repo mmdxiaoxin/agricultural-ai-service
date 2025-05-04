@@ -49,7 +49,9 @@
                             <option value="">请选择</option>
                             <option value="v5">YOLOv5</option>
                             <option value="v8">YOLOv8</option>
+                            <option value="v11">YOLOv11</option>
                             <option value="18">ResNet18</option>
+                            <option value="34">ResNet34</option>
                             <option value="50">ResNet50</option>
                             <option value="101">ResNet101</option>
                         </select>
@@ -89,7 +91,9 @@
                     
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">开始上传</button>
-                        <button type="button" class="btn btn-secondary" onclick="window.location.href='{{ url_for('manage.model_list') }}'">取消</button>
+                        <button type="button" class="btn btn-secondary" onclick="window.location.href='{{ url_for('manage.model_list')}}'">
+                          取消
+                        </button>
                     </div>
                 </form>
             </section>
@@ -101,5 +105,47 @@
     </div>
     
     <script src="{{ url_for('manage.static', filename='js/upload.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const modelTypeSelect = document.getElementById('model_type');
+            const modelVersionSelect = document.getElementById('model_version');
+            
+            // 定义不同模型类型对应的版本选项
+            const versionOptions = {
+                yolo: [
+                    { value: 'v5', text: 'YOLOv5' },
+                    { value: 'v8', text: 'YOLOv8' },
+                    { value: 'v11', text: 'YOLOv11' }
+                ],
+                resnet: [
+                    { value: '18', text: 'ResNet18' },
+                    { value: '34', text: 'ResNet34' },
+                    { value: '50', text: 'ResNet50' },
+                    { value: '101', text: 'ResNet101' }
+                ]
+            };
+            
+            // 更新具体版本选项的函数
+            function updateModelVersions() {
+                const selectedType = modelTypeSelect.value;
+                modelVersionSelect.innerHTML = '<option value="">请选择</option>';
+                
+                if (selectedType && versionOptions[selectedType]) {
+                    versionOptions[selectedType].forEach(option => {
+                        const optionElement = document.createElement('option');
+                        optionElement.value = option.value;
+                        optionElement.textContent = option.text;
+                        modelVersionSelect.appendChild(optionElement);
+                    });
+                }
+            }
+            
+            // 监听模型类型变化
+            modelTypeSelect.addEventListener('change', updateModelVersions);
+            
+            // 初始化时更新一次
+            updateModelVersions();
+        });
+    </script>
 </body>
 </html> 
