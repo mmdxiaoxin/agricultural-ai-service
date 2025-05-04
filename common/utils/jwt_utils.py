@@ -138,6 +138,26 @@ def apply_auth_decorators(*roles: str) -> Callable:
     def decorator(f: Callable) -> Callable:
         @wraps(f)
         def decorated(*args, **kwargs):
+            # 检查是否是内部访问
+            if request.headers.get("X-Internal-Access") == "true":
+                # 检查请求来源IP是否为本地
+                if request.remote_addr not in ["127.0.0.1", "localhost"]:
+                    return ApiResponse.forbidden("非法访问")
+                # 检查请求是否来自管理模块
+                if not request.path.startswith("/manage/"):
+                    return ApiResponse.forbidden("非法访问")
+                # 设置内部访问用户信息
+                setattr(
+                    current_app,
+                    "user_info",
+                    {
+                        "userId": "system",
+                        "username": "system",
+                        "roles": ["admin"],
+                    },
+                )
+                return f(*args, **kwargs)
+
             # 获取Authorization头
             auth_header = request.headers.get("Authorization")
             if not auth_header:
