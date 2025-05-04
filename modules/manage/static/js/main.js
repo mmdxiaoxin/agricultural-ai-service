@@ -7,13 +7,13 @@ async function getModels() {
         const response = await fetch(`${API_BASE_URL}/models`);
         const data = await response.json();
         if (data.code === 200) {
-            return data.data;
+            return data;
         }
-        throw new Error(data.message);
+        throw new Error(data.message || '获取模型列表失败');
     } catch (error) {
         console.error('获取模型列表失败:', error);
         showError('获取模型列表失败');
-        return {};
+        return { code: 500, data: { models: {} }, message: error.message };
     }
 }
 
@@ -119,21 +119,36 @@ document.addEventListener('DOMContentLoaded', () => {
 // 初始化模型列表
 async function initModelList() {
     try {
-        const models = await getModels();
+        const response = await getModels();
+        if (response.code !== 200) {
+            throw new Error(response.message);
+        }
+        
+        const models = response.data.models;
         const tbody = document.querySelector('#modelTable tbody');
         tbody.innerHTML = '';
 
+        if (!models || Object.keys(models).length === 0) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = '<td colspan="7" style="text-align: center;">暂无模型数据</td>';
+            tbody.appendChild(tr);
+            return;
+        }
+
         // 遍历每个模型组
         for (const [modelName, versions] of Object.entries(models)) {
-            versions.forEach(version => {
+            versions.forEach(model => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>${modelName}</td>
-                    <td>${version.version}</td>
-                    <td>${version.task_types.join(', ')}</td>
+                    <td>${model.model_type}</td>
+                    <td>${model.version}</td>
+                    <td>${model.task_types.join(', ')}</td>
+                    <td>${model.description}</td>
+                    <td>${new Date(model.created_at).toLocaleString()}</td>
                     <td>
-                        <button onclick="editModel(${version.model_id})">编辑</button>
-                        <button onclick="deleteModel(${version.model_id})">删除</button>
+                        <button onclick="editModel(${model.model_id})">编辑</button>
+                        <button onclick="deleteModel(${model.model_id})">删除</button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -141,7 +156,9 @@ async function initModelList() {
         }
     } catch (error) {
         console.error('初始化模型列表失败:', error);
-        showError('初始化模型列表失败');
+        showError('初始化模型列表失败: ' + error.message);
+        const tbody = document.querySelector('#modelTable tbody');
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: red;">加载模型列表失败</td></tr>';
     }
 }
 
