@@ -1,29 +1,59 @@
 from flask import current_app
 from common.init import initializer
 from common.utils.response import ApiResponse, ResponseCode
+from common.utils.redis_utils import RedisClient
+from common.utils.logger import log_manager
+from config.app_config import Config
+from config.resnet_config import ResNetConfig
+from config.yolo_config import YOLOConfig
+import hashlib
+import uuid
+import os
+import json
+from pathlib import Path
+
+# 获取日志记录器
+logger = log_manager.get_logger(__name__)
+
+# 使用ServiceInitializer中的实例
+ai_service = initializer.ai_service
+db = initializer.model_db
 
 
-def get_models():
+def get_models_controller():
     """获取所有模型"""
     try:
-        models = initializer.model_db.get_all_models()
-        return ApiResponse.success(data=models)
+        # 尝试从缓存获取
+        cached_models = RedisClient.get_cache(Config.MODEL_VERSIONS_CACHE_KEY)
+        if cached_models:
+            logger.debug("从缓存获取模型列表")
+            return ApiResponse.success(data={"models": cached_models})
+
+        # 缓存未命中，从数据库获取
+        models = db.get_all_models()
+
+        # 更新缓存
+        RedisClient.set_cache(Config.MODEL_VERSIONS_CACHE_KEY, models)
+
+        return ApiResponse.success(data={"models": models})
     except Exception as e:
-        return ApiResponse.internal_error(str(e))
+        logger.error(f"获取模型列表失败: {str(e)}")
+        return ApiResponse.internal_error("获取模型列表失败")
 
 
-def get_model(model_id):
+def get_model_controller(model_id):
     """获取单个模型详情"""
     try:
-        model = initializer.model_db.get_model_by_id(model_id)
+        model = db.get_model_by_id(model_id)
         if not model:
             return ApiResponse.not_found("模型不存在")
         return ApiResponse.success(data=model)
     except Exception as e:
-        return ApiResponse.internal_error(str(e))
+        logger.error(f"获取模型详情失败: {str(e)}")
+        return ApiResponse.internal_error("获取模型详情失败")
 
 
-def create_model(data):
+def create_model_controller(data):
     """创建新模型"""
     try:
         # 从data中提取必要参数
@@ -53,8 +83,22 @@ def create_model(data):
         ):
             return ApiResponse.bad_request("缺少必要参数")
 
+        # 检查是否已存在相同哈希的模型
+        existing_model = ai_service.model_manager.get_model_by_hash(file_hash)
+        if existing_model:
+            return ApiResponse.bad_request(
+                f"该模型文件已存在，模型名称: {existing_model['name']}, 版本: {existing_model['version']}"
+            )
+
+        # 设置模型参数
+        if not parameters:
+            if model_type == "yolo":
+                parameters = YOLOConfig.get_default_config()
+            elif model_type == "resnet":
+                parameters = ResNetConfig.get_default_config(model_version)
+
         # 添加模型
-        success = initializer.model_db.add_model(
+        success = ai_service.model_manager.add_model(
             name=name,
             version=version,
             task_type=task_type,
@@ -69,16 +113,32 @@ def create_model(data):
 
         if not success:
             return ApiResponse.internal_error("创建模型失败")
-        return ApiResponse.success(message="创建成功")
+
+        # 清除缓存
+        RedisClient.delete_cache(Config.MODEL_VERSIONS_CACHE_KEY)
+
+        return ApiResponse.success(
+            message=f"模型创建成功: {name}-{version}-{task_type}",
+            data={
+                "name": name,
+                "version": version,
+                "model_type": model_type,
+                "model_version": model_version,
+                "task_type": task_type,
+                "path": file_path,
+                "file_hash": file_hash,
+            },
+        )
     except Exception as e:
-        return ApiResponse.internal_error(str(e))
+        logger.error(f"创建模型失败: {str(e)}")
+        return ApiResponse.internal_error(f"服务器内部错误: {str(e)}")
 
 
-def update_model(model_id, data):
+def update_model_controller(model_id, data):
     """更新模型"""
     try:
         # 获取模型信息
-        model = initializer.model_db.get_model_by_id(model_id)
+        model = ai_service.model_manager.get_model_by_id(model_id)
         if not model:
             return ApiResponse.not_found("模型不存在")
 
@@ -91,56 +151,53 @@ def update_model(model_id, data):
             model["description"] = data["description"]
 
         # 保存更新
-        success = initializer.model_db.add_model(
-            name=model["name"],
-            version=model["version"],
-            task_type=model["task_types"][0],  # 使用第一个任务类型
-            file_path=model["file_path"],
-            file_size=model["file_size"],
-            file_hash=model["file_hash"],
-            model_version=model["model_version"],
-            model_type=model["model_type"],
-            parameters=model["parameters"],
-            description=model["description"],
+        success = ai_service.model_manager.update_model_parameters(
+            model_id, model["parameters"]
         )
-
         if not success:
             return ApiResponse.internal_error("更新失败")
-        return ApiResponse.success(message="更新成功")
+
+        # 清除缓存
+        RedisClient.delete_cache(Config.MODEL_VERSIONS_CACHE_KEY)
+
+        return ApiResponse.success(
+            message=f"模型更新成功: ID={model_id}",
+            data={"model_id": model_id, "parameters": model["parameters"]},
+        )
     except Exception as e:
-        return ApiResponse.internal_error(str(e))
+        logger.error(f"更新模型失败: {str(e)}")
+        return ApiResponse.internal_error(f"服务器内部错误: {str(e)}")
 
 
-def delete_model(model_id):
+def delete_model_controller(model_id):
     """删除模型"""
     try:
         # 获取模型信息
-        model = initializer.model_db.get_model_by_id(model_id)
+        model = ai_service.model_manager.get_model_by_id(model_id)
         if not model:
             return ApiResponse.not_found("模型不存在")
 
         # 删除模型文件
-        import os
-
-        if os.path.exists(model["file_path"]):
-            os.remove(model["file_path"])
+        file_path = Path(model["file_path"])
+        if file_path.exists():
+            try:
+                file_path.unlink()
+                logger.info(f"模型文件已删除: {file_path}")
+            except Exception as e:
+                logger.error(f"删除模型文件失败: {str(e)}")
+                return ApiResponse.internal_error("删除模型文件失败")
 
         # 删除数据库记录
-        success = initializer.model_db.add_model(
-            name=model["name"],
-            version=model["version"],
-            task_type=model["task_types"][0],  # 使用第一个任务类型
-            file_path="",  # 空路径表示删除
-            file_size=0,
-            file_hash="",
-            model_version=model["model_version"],
-            model_type=model["model_type"],
-            parameters=None,
-            description=None,
-        )
+        if not ai_service.model_manager.delete_model_by_id(model_id):
+            return ApiResponse.internal_error("删除模型记录失败")
 
-        if not success:
-            return ApiResponse.internal_error("删除失败")
-        return ApiResponse.success(message="删除成功")
+        # 清除缓存
+        RedisClient.delete_cache(Config.MODEL_VERSIONS_CACHE_KEY)
+
+        return ApiResponse.success(
+            message=f"模型删除成功: ID={model_id}",
+            data={"model_id": model_id},
+        )
     except Exception as e:
-        return ApiResponse.internal_error(str(e))
+        logger.error(f"删除模型失败: {str(e)}")
+        return ApiResponse.internal_error(f"服务器内部错误: {str(e)}")

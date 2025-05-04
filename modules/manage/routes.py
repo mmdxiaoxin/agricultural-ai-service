@@ -1,10 +1,10 @@
 from flask import Blueprint, render_template, request, jsonify, send_from_directory
 from .controllers.model_controller import (
-    get_models,
-    get_model,
-    create_model,
-    update_model,
-    delete_model,
+    get_models_controller,
+    get_model_controller,
+    create_model_controller,
+    update_model_controller,
+    delete_model_controller,
 )
 
 manage_bp = Blueprint(
@@ -57,14 +57,14 @@ def model_edit(model_id):
 @manage_bp.route("/api/models", methods=["GET"])
 def api_get_models():
     """获取模型列表API"""
-    response, status_code = get_models()
+    response, status_code = get_models_controller()
     return response, status_code
 
 
 @manage_bp.route("/api/models/<int:model_id>", methods=["GET"])
 def api_get_model(model_id):
     """获取模型详情API"""
-    response, status_code = get_model(model_id)
+    response, status_code = get_model_controller(model_id)
     return response, status_code
 
 
@@ -72,7 +72,7 @@ def api_get_model(model_id):
 def api_create_model():
     """创建模型API"""
     data = request.get_json()
-    response, status_code = create_model(data)
+    response, status_code = create_model_controller(data)
     return response, status_code
 
 
@@ -80,12 +80,12 @@ def api_create_model():
 def api_update_model(model_id):
     """更新模型API"""
     data = request.get_json()
-    response, status_code = update_model(model_id, data)
+    response, status_code = update_model_controller(model_id, data)
     return response, status_code
 
 
 @manage_bp.route("/api/models/<int:model_id>", methods=["DELETE"])
 def api_delete_model(model_id):
     """删除模型API"""
-    response, status_code = delete_model(model_id)
+    response, status_code = delete_model_controller(model_id)
     return response, status_code
