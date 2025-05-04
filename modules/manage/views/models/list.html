@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>模型列表 - 诊断模型配置</title>
+    <link rel="stylesheet" href="{{ url_for('manage.static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>模型列表</h1>
+            <nav>
+                <ul>
+                    <li><a href="{{ url_for('manage.index') }}">首页</a></li>
+                    <li><a href="{{ url_for('manage.model_list') }}">模型列表</a></li>
+                    <li><a href="{{ url_for('manage.model_create') }}">创建模型</a></li>
+                </ul>
+            </nav>
+        </header>
+        
+        <main>
+            <section class="model-list">
+                <h2>可用模型</h2>
+                <table id="modelTable">
+                    <thead>
+                        <tr>
+                            <th>模型名称</th>
+                            <th>版本</th>
+                            <th>任务类型</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- 模型列表将通过JavaScript动态加载 -->
+                    </tbody>
+                </table>
+            </section>
+        </main>
+        
+        <footer>
+            <p>&copy; 2024 农业AI服务平台</p>
+        </footer>
+    </div>
+    
+    <script src="{{ url_for('manage.static', filename='js/main.js') }}"></script>
+</body>
+</html> 
