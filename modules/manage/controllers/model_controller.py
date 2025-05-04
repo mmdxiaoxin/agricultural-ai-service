@@ -223,8 +223,6 @@ def upload_chunk_controller():
         if not task_info:
             return ApiResponse.not_found("上传任务不存在或已过期")
 
-        task_info = json.loads(task_info)
-
         # 验证分片索引
         try:
             chunk_index = int(chunk_index_str)
@@ -277,8 +275,6 @@ def merge_chunks_controller():
         task_info = RedisClient.get_cache(f"upload_task:{task_id}")
         if not task_info:
             return ApiResponse.not_found("上传任务不存在或已过期")
-
-        task_info = json.loads(task_info)
 
         # 检查是否所有分片都已上传
         if task_info["uploaded_chunks"] != task_info["total_chunks"]:
