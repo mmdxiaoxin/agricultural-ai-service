@@ -3,6 +3,8 @@ from werkzeug.exceptions import RequestEntityTooLarge
 from pathlib import Path
 import hashlib
 import uuid
+import os
+import json
 
 from common.utils.response import ApiResponse
 from config.app_config import Config
@@ -506,4 +508,245 @@ def delete_model_controller(model_id: int):
 
     except Exception as e:
         logger.error(f"删除模型时发生错误: {str(e)}")
+        return ApiResponse.internal_error(f"服务器内部错误: {str(e)}")
+
+
+def create_upload_task_controller():
+    """
+    创建分片上传任务
+    需要在form-data中提供以下参数：
+    - name: 模型名称
+    - version: 模型版本
+    - model_type: 模型类型（yolo/resnet）
+    - model_version: 具体模型版本
+    - task_type: 任务类型（detect/classify）
+    - total_size: 文件总大小
+    - total_chunks: 总分片数
+    - description: 模型描述（可选）
+    """
+    try:
+        # 获取并验证必要参数
+        name = request.form.get("name", "")
+        version = request.form.get("version", "")
+        model_type = request.form.get("model_type", "")
+        model_version = request.form.get("model_version", "")
+        task_type = request.form.get("task_type", "")
+        total_size_str = request.form.get("total_size", "")
+        total_chunks_str = request.form.get("total_chunks", "")
+
+        if not all(
+            [
+                name,
+                version,
+                model_type,
+                model_version,
+                task_type,
+                total_size_str,
+                total_chunks_str,
+            ]
+        ):
+            return ApiResponse.bad_request("缺少必要参数")
+
+        # 验证参数
+        if model_type not in ["yolo", "resnet"]:
+            return ApiResponse.bad_request("不支持的模型类型")
+        if task_type not in ["detect", "classify"]:
+            return ApiResponse.bad_request("不支持的任务类型")
+
+        try:
+            total_size = int(total_size_str)
+            total_chunks = int(total_chunks_str)
+        except ValueError:
+            return ApiResponse.bad_request("文件大小和分片数必须是整数")
+
+        # 生成上传任务ID
+        task_id = str(uuid.uuid4())
+
+        # 创建任务信息
+        task_info = {
+            "name": name,
+            "version": version,
+            "model_type": model_type,
+            "model_version": model_version,
+            "task_type": task_type,
+            "total_size": total_size,
+            "total_chunks": total_chunks,
+            "uploaded_chunks": 0,
+            "chunks": {},
+            "description": request.form.get("description", ""),
+            "status": "uploading",
+        }
+
+        # 将任务信息存入Redis
+        RedisClient.set_cache(
+            f"upload_task:{task_id}", json.dumps(task_info), ttl=3600
+        )  # 1小时过期
+
+        return ApiResponse.success(
+            data={"task_id": task_id, "message": "上传任务创建成功"}
+        )
+
+    except Exception as e:
+        logger.error(f"创建上传任务失败: {str(e)}")
+        return ApiResponse.internal_error(f"服务器内部错误: {str(e)}")
+
+
+def upload_chunk_controller():
+    """
+    上传文件分片
+    需要在form-data中提供以下参数：
+    - task_id: 上传任务ID
+    - chunk_index: 分片索引
+    - chunk: 分片文件
+    """
+    try:
+        task_id = request.form.get("task_id", "")
+        chunk_index_str = request.form.get("chunk_index", "")
+        chunk_file = request.files.get("chunk")
+
+        if not all([task_id, chunk_index_str, chunk_file]):
+            return ApiResponse.bad_request("缺少必要参数")
+
+        # 获取任务信息
+        task_info = RedisClient.get_cache(f"upload_task:{task_id}")
+        if not task_info:
+            return ApiResponse.not_found("上传任务不存在或已过期")
+
+        task_info = json.loads(task_info)
+
+        # 验证分片索引
+        try:
+            chunk_index = int(chunk_index_str)
+            if chunk_index < 0 or chunk_index >= task_info["total_chunks"]:
+                return ApiResponse.bad_request("无效的分片索引")
+        except ValueError:
+            return ApiResponse.bad_request("分片索引必须是整数")
+
+        # 保存分片
+        chunk_dir = Path(Config.UPLOAD_CHUNK_DIR) / task_id
+        chunk_dir.mkdir(parents=True, exist_ok=True)
+
+        chunk_path = chunk_dir / f"chunk_{chunk_index}"
+        chunk_file.save(str(chunk_path))
+
+        # 更新任务信息
+        task_info["chunks"][str(chunk_index)] = True
+        task_info["uploaded_chunks"] = len(task_info["chunks"])
+
+        RedisClient.set_cache(f"upload_task:{task_id}", json.dumps(task_info), ttl=3600)
+
+        return ApiResponse.success(
+            data={
+                "task_id": task_id,
+                "chunk_index": chunk_index,
+                "message": "分片上传成功",
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"上传分片失败: {str(e)}")
+        return ApiResponse.internal_error(f"服务器内部错误: {str(e)}")
+
+
+def merge_chunks_controller():
+    """
+    合并文件分片
+    需要在form-data中提供以下参数：
+    - task_id: 上传任务ID
+    """
+    try:
+        task_id = request.form.get("task_id")
+        if not task_id:
+            return ApiResponse.bad_request("缺少任务ID")
+
+        # 获取任务信息
+        task_info = RedisClient.get_cache(f"upload_task:{task_id}")
+        if not task_info:
+            return ApiResponse.not_found("上传任务不存在或已过期")
+
+        task_info = json.loads(task_info)
+
+        # 检查是否所有分片都已上传
+        if task_info["uploaded_chunks"] != task_info["total_chunks"]:
+            return ApiResponse.bad_request("还有分片未上传完成")
+
+        # 合并分片
+        chunk_dir = Path(Config.UPLOAD_CHUNK_DIR) / task_id
+        if not chunk_dir.exists():
+            return ApiResponse.not_found("分片目录不存在")
+
+        # 生成最终文件名
+        original_extension = "pt"  # PyTorch模型文件扩展名
+        filename = f"{uuid.uuid4()}.{original_extension}"
+        save_path = Config.get_model_path(filename)
+
+        # 按顺序合并分片
+        with open(save_path, "wb") as outfile:
+            for i in range(task_info["total_chunks"]):
+                chunk_path = chunk_dir / f"chunk_{i}"
+                with open(chunk_path, "rb") as infile:
+                    outfile.write(infile.read())
+
+        # 计算文件哈希
+        with open(save_path, "rb") as f:
+            file_hash = hashlib.sha256(f.read()).hexdigest()
+
+        # 检查是否已存在相同哈希的模型
+        existing_model = ai_service.model_manager.get_model_by_hash(file_hash)
+        if existing_model:
+            # 删除合并后的文件
+            os.remove(save_path)
+            return ApiResponse.bad_request(
+                f"该模型文件已存在，模型名称: {existing_model['name']}, 版本: {existing_model['version']}"
+            )
+
+        # 设置模型参数
+        parameters = {}
+        if task_info["model_type"] == "yolo":
+            parameters = YOLOConfig.get_default_config()
+        elif task_info["model_type"] == "resnet":
+            parameters = ResNetConfig.get_default_config(task_info["model_version"])
+
+        # 更新数据库中的模型配置
+        if not ai_service.model_manager.add_model(
+            name=task_info["name"],
+            version=task_info["version"],
+            task_type=task_info["task_type"],
+            file_path=save_path,
+            file_size=task_info["total_size"],
+            file_hash=file_hash,
+            model_version=task_info["model_version"],
+            model_type=task_info["model_type"],
+            parameters=parameters,
+            description=task_info["description"],
+        ):
+            # 如果数据库更新失败，删除已保存的文件
+            if save_path.exists():
+                save_path.unlink()
+            return ApiResponse.internal_error("保存模型配置失败")
+
+        # 清理分片目录
+        for chunk_path in chunk_dir.glob("chunk_*"):
+            chunk_path.unlink()
+        chunk_dir.rmdir()
+
+        # 清除任务缓存
+        RedisClient.delete_cache(f"upload_task:{task_id}")
+        RedisClient.delete_cache(Config.MODEL_VERSIONS_CACHE_KEY)
+
+        return ApiResponse.success(
+            message=f"模型上传成功: {task_info['name']}-{task_info['version']}-{task_info['task_type']}",
+            data={
+                "name": task_info["name"],
+                "version": task_info["version"],
+                "model_type": task_info["model_type"],
+                "model_version": task_info["model_version"],
+                "task_type": task_info["task_type"],
+                "path": str(save_path),
+                "file_hash": file_hash,
+            },
+        )
+
+    except Exception as e:
+        logger.error(f"合并分片失败: {str(e)}")
         return ApiResponse.internal_error(f"服务器内部错误: {str(e)}")

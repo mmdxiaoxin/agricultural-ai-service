@@ -9,6 +9,9 @@ from .controller import (
     delete_model_controller,
     get_detect_result_controller,
     get_classify_result_controller,
+    create_upload_task_controller,
+    upload_chunk_controller,
+    merge_chunks_controller,
 )
 from common.utils.jwt_utils import apply_auth_decorators
 
@@ -48,4 +51,17 @@ ai_bp.route("/models/<int:model_id>", methods=["PUT"])(
 # 模型删除路由
 ai_bp.route("/models/<int:model_id>", methods=["DELETE"])(
     apply_auth_decorators("admin", "expert")(delete_model_controller)
+)
+
+# 分片上传相关路由
+ai_bp.route("/upload/create", methods=["POST"])(
+    apply_auth_decorators("admin", "expert")(create_upload_task_controller)
+)
+
+ai_bp.route("/upload/chunk", methods=["POST"])(
+    apply_auth_decorators("admin", "expert")(upload_chunk_controller)
+)
+
+ai_bp.route("/upload/merge", methods=["POST"])(
+    apply_auth_decorators("admin", "expert")(merge_chunks_controller)
 )

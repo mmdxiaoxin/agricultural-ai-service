@@ -79,6 +79,11 @@ class Config:
     # 模型版本缓存键
     MODEL_VERSIONS_CACHE_KEY = "ai:model:versions"
 
+    # 分片上传配置
+    UPLOAD_CHUNK_DIR = "uploads/chunks"  # 分片文件存储目录
+    CHUNK_SIZE = 5 * 1024 * 1024  # 分片大小，默认5MB
+    MAX_CHUNKS = 1000  # 最大分片数
+
     @classmethod
     def init_app(cls, app):
         """初始化应用配置"""
