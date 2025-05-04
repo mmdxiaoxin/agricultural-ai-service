@@ -1,0 +1,33 @@
+name: pytorch_310
+channels:
+  - pytorch
+  - nvidia
+  - defaults
+dependencies:
+  - python=3.10.15
+  - pytorch=2.5.1
+  - pytorch-cuda=12.4
+  - numpy=2.0.1
+  - pip:
+      - flask==3.1.0
+      - flask-cors==3.0.10
+      - flask-jwt-extended==4.7.1
+      - flask-socketio==5.4.1
+      - flask-sqlalchemy==3.1.1
+      - torchvision==0.20.1
+      - torchaudio==2.5.1
+      - opencv-python==4.10.0.84
+      - pandas==2.2.3
+      - scikit-learn==1.6.1
+      - scipy==1.14.1
+      - matplotlib==3.9.2
+      - seaborn==0.13.2
+      - celery==5.4.0
+      - redis==5.2.1
+      - sqlalchemy==2.0.38
+      - streamlit==1.40.1
+      - ultralytics==8.3.83
+      - python-dotenv==1.0.1
+      - gunicorn==23.0.0
+      - waitress==3.0.2
+prefix: C:\Users\mmdxiaoxin\miniconda3\envs\pytorch_310
