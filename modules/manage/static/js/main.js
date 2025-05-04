@@ -13,7 +13,7 @@ async function getModels() {
     } catch (error) {
         console.error('获取模型列表失败:', error);
         showError('获取模型列表失败');
-        return [];
+        return {};
     }
 }
 
@@ -116,24 +116,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// 初始化模型列表页
+// 初始化模型列表
 async function initModelList() {
-    const models = await getModels();
-    const tableBody = document.querySelector('#modelTable tbody');
-    
-    if (tableBody) {
-        tableBody.innerHTML = models.map(model => `
-            <tr>
-                <td>${model.name}</td>
-                <td>${model.version}</td>
-                <td>${model.task_type}</td>
-                <td>
-                    <a href="/manage/models/${model.id}" class="btn">查看</a>
-                    <a href="/manage/models/${model.id}/edit" class="btn">编辑</a>
-                    <button onclick="deleteModel(${model.id})" class="btn btn-danger">删除</button>
-                </td>
-            </tr>
-        `).join('');
+    try {
+        const models = await getModels();
+        const tbody = document.querySelector('#modelTable tbody');
+        tbody.innerHTML = '';
+
+        // 遍历每个模型组
+        for (const [modelName, versions] of Object.entries(models)) {
+            versions.forEach(version => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${modelName}</td>
+                    <td>${version.version}</td>
+                    <td>${version.task_types.join(', ')}</td>
+                    <td>
+                        <button onclick="editModel(${version.model_id})">编辑</button>
+                        <button onclick="deleteModel(${version.model_id})">删除</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+    } catch (error) {
+        console.error('初始化模型列表失败:', error);
+        showError('初始化模型列表失败');
     }
 }
 
