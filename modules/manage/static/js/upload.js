@@ -19,7 +19,7 @@ async function createUploadTask() {
     formData.delete('model_file');  // 移除文件，因为我们要分片上传
     
     try {
-        const response = await fetch('/ai/upload/create', {
+        const response = await fetch('/api/models/upload/task', {
             method: 'POST',
             body: formData
         });
@@ -43,7 +43,7 @@ async function uploadChunk(chunkIndex, chunk) {
     formData.append('chunk', chunk);
     
     try {
-        const response = await fetch('/ai/upload/chunk', {
+        const response = await fetch('/api/models/upload/create', {
             method: 'POST',
             body: formData
         });
@@ -63,7 +63,7 @@ async function mergeChunks() {
     formData.append('task_id', uploadTaskId);
     
     try {
-        const response = await fetch('/ai/upload/merge', {
+        const response = await fetch('/api/models/upload/merge', {
             method: 'POST',
             body: formData
         });

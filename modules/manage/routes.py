@@ -2,9 +2,12 @@ from flask import Blueprint, render_template, request, jsonify, send_from_direct
 from .controllers.model_controller import (
     get_models_controller,
     get_model_controller,
-    create_model_controller,
     update_model_controller,
     delete_model_controller,
+    create_upload_task_controller,
+    upload_chunk_controller,
+    merge_chunks_controller,
+    upload_model_controller,
 )
 
 manage_bp = Blueprint(
@@ -68,14 +71,6 @@ def api_get_model(model_id):
     return response, status_code
 
 
-@manage_bp.route("/api/models", methods=["POST"])
-def api_create_model():
-    """创建模型API"""
-    data = request.get_json()
-    response, status_code = create_model_controller(data)
-    return response, status_code
-
-
 @manage_bp.route("/api/models/<int:model_id>", methods=["PUT"])
 def api_update_model(model_id):
     """更新模型API"""
@@ -88,4 +83,32 @@ def api_update_model(model_id):
 def api_delete_model(model_id):
     """删除模型API"""
     response, status_code = delete_model_controller(model_id)
+    return response, status_code
+
+
+@manage_bp.route("/api/models/upload/create", methods=["POST"])
+def api_create_upload_task():
+    """创建分片上传任务API"""
+    response, status_code = create_upload_task_controller()
+    return response, status_code
+
+
+@manage_bp.route("/api/models/upload/chunk", methods=["POST"])
+def api_upload_chunk():
+    """上传文件分片API"""
+    response, status_code = upload_chunk_controller()
+    return response, status_code
+
+
+@manage_bp.route("/api/models/upload/merge", methods=["POST"])
+def api_merge_chunks():
+    """合并文件分片API"""
+    response, status_code = merge_chunks_controller()
+    return response, status_code
+
+
+@manage_bp.route("/api/models/upload", methods=["POST"])
+def api_upload_model():
+    """上传模型文件API"""
+    response, status_code = upload_model_controller()
     return response, status_code
