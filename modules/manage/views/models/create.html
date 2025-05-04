@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>创建模型 - 诊断模型配置</title>
+    <link rel="stylesheet" href="{{ url_for('manage.static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>创建模型</h1>
+            <nav>
+                <ul>
+                    <li><a href="{{ url_for('manage.index') }}">首页</a></li>
+                    <li><a href="{{ url_for('manage.model_list') }}">模型列表</a></li>
+                    <li><a href="{{ url_for('manage.model_create') }}">创建模型</a></li>
+                </ul>
+            </nav>
+        </header>
+        
+        <main>
+            <section class="model-form">
+                <h2>上传新模型</h2>
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="name">模型名称</label>
+                        <input type="text" id="name" name="name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="version">模型版本</label>
+                        <input type="text" id="version" name="version" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="model_type">模型类型</label>
+                        <select id="model_type" name="model_type" required>
+                            <option value="">请选择</option>
+                            <option value="yolo">YOLO</option>
+                            <option value="resnet">ResNet</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="model_version">具体版本</label>
+                        <select id="model_version" name="model_version" required>
+                            <option value="">请选择</option>
+                            <option value="v5">YOLOv5</option>
+                            <option value="v8">YOLOv8</option>
+                            <option value="18">ResNet18</option>
+                            <option value="50">ResNet50</option>
+                            <option value="101">ResNet101</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="task_type">任务类型</label>
+                        <select id="task_type" name="task_type" required>
+                            <option value="">请选择</option>
+                            <option value="detect">目标检测</option>
+                            <option value="classify">图像分类</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="description">模型描述</label>
+                        <textarea id="description" name="description" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="model_file">模型文件</label>
+                        <input type="file" id="model_file" name="model_file" required>
+                        <div class="file-info">
+                            <p>支持的文件类型: .pt, .pth, .onnx</p>
+                            <p>最大文件大小: 500MB</p>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <div class="progress-container">
+                            <div class="progress-bar">
+                                <div class="progress" id="uploadProgress"></div>
+                            </div>
+                            <div class="progress-text" id="progressText">0%</div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">开始上传</button>
+                        <button type="button" class="btn btn-secondary" onclick="window.location.href='{{ url_for('manage.model_list') }}'">取消</button>
+                    </div>
+                </form>
+            </section>
+        </main>
+        
+        <footer>
+            <p>&copy; 2024 农业AI服务平台</p>
+        </footer>
+    </div>
+    
+    <script src="{{ url_for('manage.static', filename='js/upload.js') }}"></script>
+</body>
+</html> 
