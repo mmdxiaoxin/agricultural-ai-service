@@ -627,7 +627,10 @@ def upload_chunk_controller():
         chunk_dir.mkdir(parents=True, exist_ok=True)
 
         chunk_path = chunk_dir / f"chunk_{chunk_index}"
-        chunk_file.save(str(chunk_path))
+        if chunk_file:
+            chunk_file.save(str(chunk_path))
+        else:
+            return ApiResponse.bad_request("分片文件为空")
 
         # 更新任务信息
         task_info["chunks"][str(chunk_index)] = True
