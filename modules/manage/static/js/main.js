@@ -101,6 +101,11 @@ function showError(message) {
     alert(message);
 }
 
+// 显示成功消息
+function showSuccess(message) {
+    alert(message);
+}
+
 // 页面加载完成后执行
 document.addEventListener('DOMContentLoaded', () => {
     // 根据当前页面执行相应的初始化操作
@@ -115,6 +120,18 @@ document.addEventListener('DOMContentLoaded', () => {
         initModelDetail(modelId);
     }
 });
+
+// 处理删除模型
+async function handleDeleteModel(versionId) {
+    if (confirm('确定要删除这个模型吗？此操作不可恢复。')) {
+        const success = await deleteModel(versionId);
+        if (success) {
+            showSuccess('模型删除成功');
+            // 删除成功后刷新列表
+            await initModelList();
+        }
+    }
+}
 
 // 初始化模型列表
 async function initModelList() {
@@ -148,7 +165,7 @@ async function initModelList() {
                     <td>${new Date(model.created_at).toLocaleString()}</td>
                     <td>
                         <button onclick="editModel(${model.model_id})">编辑</button>
-                        <button onclick="deleteModel(${model.version_id})">删除</button>
+                        <button onclick="handleDeleteModel(${model.version_id})">删除</button>
                     </td>
                 `;
                 tbody.appendChild(tr);
