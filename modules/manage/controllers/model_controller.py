@@ -3,6 +3,7 @@ from common.init import initializer
 from common.utils.response import ApiResponse, ResponseCode
 from common.utils.redis_utils import RedisClient
 from common.utils.logger import log_manager
+from common.utils.ip_utils import local_ip_required
 from config.app_config import Config
 from config.resnet_config import ResNetConfig
 from config.yolo_config import YOLOConfig
@@ -11,6 +12,7 @@ import uuid
 import os
 import json
 from pathlib import Path
+from functools import wraps
 
 # 获取日志记录器
 logger = log_manager.get_logger(__name__)
@@ -260,6 +262,7 @@ def upload_chunk_controller():
         return ApiResponse.internal_error(f"服务器内部错误: {str(e)}")
 
 
+@local_ip_required
 def merge_chunks_controller():
     """
     合并文件分片
