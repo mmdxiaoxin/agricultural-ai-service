@@ -58,7 +58,7 @@ class VersionDB(DatabaseBase):
             logger.error(f"添加版本失败: {str(e)}")
             return None
 
-    def get_version(self, version_id: int) -> Optional[Dict[str, Any]]:
+    def get_version_by_id(self, version_id: int) -> Optional[Dict[str, Any]]:
         """获取版本信息"""
         try:
             with self.get_connection() as conn:

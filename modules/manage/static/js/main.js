@@ -78,9 +78,9 @@ async function updateModel(modelId, modelData) {
 }
 
 // 删除模型
-async function deleteModel(modelId) {
+async function deleteModel(versionId) {
     try {
-        const response = await fetch(`${API_BASE_URL}/models/${modelId}`, {
+        const response = await fetch(`${API_BASE_URL}/models/version/${versionId}`, {
             method: 'DELETE',
         });
         const data = await response.json();
@@ -148,7 +148,7 @@ async function initModelList() {
                     <td>${new Date(model.created_at).toLocaleString()}</td>
                     <td>
                         <button onclick="editModel(${model.model_id})">编辑</button>
-                        <button onclick="deleteModel(${model.model_id})">删除</button>
+                        <button onclick="deleteModel(${model.version_id})">删除</button>
                     </td>
                 `;
                 tbody.appendChild(tr);

@@ -313,6 +313,10 @@ class ModelManager:
         """根据ID获取模型信息"""
         return self._model_db.get_model_by_id(model_id)
 
+    def get_model_by_version_id(self, version_id: int) -> Optional[Dict[str, Any]]:
+        """根据版本ID获取模型信息"""
+        return self._version_db.get_version_by_id(version_id)
+
     def update_model_parameters(
         self, model_id: int, parameters: Dict[str, Any]
     ) -> bool:
@@ -325,7 +329,33 @@ class ModelManager:
 
     def delete_version_by_id(self, version_id: int) -> bool:
         """根据版本ID删除模型版本"""
-        return self._version_db.delete_version_by_id(version_id)
+        try:
+            # 获取版本信息
+            version_info = self._version_db.get_version_by_id(version_id)
+            if not version_info:
+                logger.warning(f"未找到版本信息: ID={version_id}")
+                return False
+
+            # 删除模型文件
+            file_path = Path(version_info["file_path"])
+            if file_path.exists():
+                try:
+                    file_path.unlink()
+                    logger.info(f"模型文件已删除: {file_path}")
+                except Exception as e:
+                    logger.error(f"删除模型文件失败: {str(e)}")
+                    return False
+
+            # 删除数据库记录
+            if not self._version_db.delete_version_by_id(version_id):
+                return False
+
+            # 重新加载模型
+            self._load_models()
+            return True
+        except Exception as e:
+            logger.error(f"删除模型版本失败: {str(e)}")
+            return False
 
     def get_model_by_hash(self, file_hash: str) -> Optional[Dict[str, Any]]:
         """根据文件哈希获取模型信息"""

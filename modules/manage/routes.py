@@ -93,11 +93,11 @@ def api_update_model(model_id):
     return response, status_code
 
 
-@manage_bp.route("/api/models/<int:model_id>", methods=["DELETE"])
+@manage_bp.route("/api/models/version/<int:version_id>", methods=["DELETE"])
 @local_ip_required
-def api_delete_model(model_id):
+def api_delete_model(version_id):
     """删除模型API"""
-    response, status_code = delete_model_controller(model_id)
+    response, status_code = delete_model_controller(version_id)
     return response, status_code
 
 
