@@ -1,0 +1,119 @@
+# 农业AI服务系统
+
+这是一个基于Python的农业AI服务系统，集成了多种AI模型和功能，用于农业相关的智能诊断。
+
+## 功能特点
+
+- 基于Flask的Web服务
+- Celery异步任务处理
+- 支持多种AI模型集成
+- 跨域支持
+- 完整的日志系统
+- 可配置的服务器参数
+- 支持Windows和Linux环境
+
+## 系统要求
+
+- Python 3.8+
+- Redis服务器
+- CUDA支持（可选，用于GPU加速）
+
+## 安装步骤
+
+1. 克隆项目
+```bash
+git clone [项目地址]
+cd agricultural-ai-service
+```
+
+2. 创建并激活虚拟环境（推荐）
+```bash
+# Windows
+python -m venv venv
+.\venv\Scripts\activate
+
+# Linux/Mac
+python3 -m venv venv
+source venv/bin/activate
+```
+
+3. 安装依赖
+```bash
+pip install -r requirements.txt
+```
+
+4. 配置环境变量
+创建`.env`文件并配置必要的环境变量：
+```env
+FLASK_APP=app.py
+FLASK_ENV=development
+```
+
+## 运行服务
+
+系统支持三种运行模式：
+
+1. 同时运行Web服务和Worker（默认）
+```bash
+python run.py
+```
+
+2. 仅运行Web服务
+```bash
+python run.py --mode web
+```
+
+3. 仅运行Worker
+```bash
+python run.py --mode worker
+```
+
+## 项目结构
+
+```
+agricultural-ai-service/
+├── app.py              # 主应用入口
+├── celery_app.py       # Celery配置
+├── run.py             # 服务启动脚本
+├── requirements.txt    # 项目依赖
+├── config/            # 配置文件目录
+├── common/            # 公共组件
+├── modules/           # 功能模块
+├── services/          # 服务层
+├── data/             # 数据目录
+├── weight/           # 模型权重
+├── uploads/          # 上传文件目录
+└── logs/             # 日志目录
+```
+
+## 配置说明
+
+系统会自动根据服务器资源进行优化配置：
+- CPU核心数：自动计算最佳线程数
+- 内存使用：根据可用内存调整连接限制
+- 请求超时：可配置的请求处理超时时间
+
+## 开发说明
+
+1. 添加新的AI模型：
+   - 在`modules/ai`目录下创建新的模型处理模块
+   - 在`services`目录下添加相应的服务层代码
+
+2. 添加新的API端点：
+   - 在`modules`目录下创建新的蓝图
+   - 在`app.py`中注册新的蓝图
+
+## 注意事项
+
+- 确保Redis服务已启动
+- 首次运行前检查配置文件
+- 建议在生产环境中使用`waitress`作为WSGI服务器
+- 注意定期清理`uploads`和`logs`目录
+
+## 许可证
+
+[添加许可证信息]
+
+## 联系方式
+
+[添加联系方式] 
