@@ -76,6 +76,55 @@ curl -X DELETE http://localhost:5000/manage/models/model_id \
   -H "Authorization: Bearer your_token"
 ```
 
+## Docker部署
+
+系统支持使用Docker进行部署，提供了完整的Docker配置：
+
+### 使用Docker Compose部署（推荐）
+
+1. 确保已安装Docker和Docker Compose
+2. 确保已安装NVIDIA Container Toolkit（用于GPU支持）
+3. 在项目根目录下运行：
+```bash
+docker-compose up -d
+```
+
+### 手动构建Docker镜像
+
+1. 构建镜像：
+```bash
+docker build -t agricultural-ai-service .
+```
+
+2. 运行容器：
+```bash
+docker run -d \
+  --name agricultural-ai-service \
+  --gpus all \
+  -p 5000:5000 \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/weight:/app/weight \
+  -v $(pwd)/uploads:/app/uploads \
+  -v $(pwd)/logs:/app/logs \
+  agricultural-ai-service
+```
+
+### Docker环境说明
+
+- 使用CUDA 12.4作为基础镜像
+- 包含所有必要的Python依赖
+- 支持GPU加速
+- 包含Redis服务
+- 数据持久化存储
+- 自动健康检查
+
+### 注意事项
+
+- 确保Docker主机有足够的GPU内存
+- 首次运行时会下载较大的基础镜像
+- 建议使用SSD存储以提高性能
+- 定期备份数据卷中的数据
+
 ## 安装步骤
 
 1. 克隆项目
