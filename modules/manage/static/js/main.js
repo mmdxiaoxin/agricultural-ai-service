@@ -152,12 +152,35 @@ async function initModelList() {
             return;
         }
 
-        // 遍历每个模型组
+        // 按model_id分组
+        const groupedModels = {};
         for (const [modelName, versions] of Object.entries(models)) {
             versions.forEach(model => {
+                if (!groupedModels[model.model_id]) {
+                    groupedModels[model.model_id] = {
+                        name: modelName,
+                        versions: []
+                    };
+                }
+                groupedModels[model.model_id].versions.push(model);
+            });
+        }
+
+        // 遍历分组后的模型
+        for (const [modelId, group] of Object.entries(groupedModels)) {
+            // 按创建时间排序，最新的版本在前
+            group.versions.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            
+            // 为每个版本创建行
+            group.versions.forEach((model, index) => {
                 const tr = document.createElement('tr');
+                // 如果是第一个版本，添加特殊样式
+                if (index === 0) {
+                    tr.style.backgroundColor = '#f0f8ff';  // 浅蓝色背景
+                }
+                
                 tr.innerHTML = `
-                    <td>${modelName}</td>
+                    <td>${group.name}${index === 0 ? ' <span style="color: #1e90ff;">(最新)</span>' : ''}</td>
                     <td>${model.model_type}</td>
                     <td>${model.version}</td>
                     <td>${model.task_types.join(', ')}</td>
