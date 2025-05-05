@@ -11,12 +11,70 @@
 - 完整的日志系统
 - 可配置的服务器参数
 - 支持Windows和Linux环境
+- RESTful API接口支持
+- 基于JWT的接口认证
 
 ## 系统要求
 
 - Python 3.8+
 - Redis服务器
 - CUDA支持（可选，用于GPU加速）
+
+## API接口说明
+
+系统提供两套API接口：
+
+### 1. AI服务接口 (/ai)
+
+这些接口用于提供AI服务，需要授权访问：
+
+- 接口基础路径：`/ai`
+- 认证方式：JWT Token
+- 主要功能：
+  - 图像识别和分析
+  - 病害诊断
+  - 作物生长状态评估
+  - 产量预测
+  - 其他AI相关服务
+
+使用示例：
+```bash
+# 获取访问令牌
+curl -X POST http://localhost:5000/ai/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "your_username", "password": "your_password"}'
+
+# 调用AI服务
+curl -X POST http://localhost:5000/ai/detect \
+  -H "Authorization: Bearer your_token" \
+  -H "Content-Type: application/json" \
+  -d '{"image": "base64_encoded_image"}'
+```
+
+### 2. 管理接口 (/manage)
+
+这些接口用于系统管理，主要用于模型管理：
+
+- 接口基础路径：`/manage`
+- 认证方式：JWT Token
+- 主要功能：
+  - 模型创建和部署
+  - 模型删除
+  - 模型状态监控
+  - 系统配置管理
+
+使用示例：
+```bash
+# 创建新模型
+curl -X POST http://localhost:5000/manage/models \
+  -H "Authorization: Bearer your_token" \
+  -H "Content-Type: application/json" \
+  -d '{"model_name": "new_model", "model_type": "detection"}'
+
+# 删除模型
+curl -X DELETE http://localhost:5000/manage/models/model_id \
+  -H "Authorization: Bearer your_token"
+```
 
 ## 安装步骤
 
