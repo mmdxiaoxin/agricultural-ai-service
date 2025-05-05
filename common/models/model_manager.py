@@ -309,19 +309,6 @@ class ModelManager:
         """获取所有可用的模型版本"""
         return self._model_db.get_all_models()
 
-    def delete_model(self, name: str, version: str) -> bool:
-        """删除指定版本的模型"""
-        try:
-            # 从数据库中删除元数据
-            if self._model_db.delete_model(name, version):
-                # 重新加载模型
-                self._load_models()
-                return True
-            return False
-        except Exception as e:
-            logger.error(f"删除模型失败: {str(e)}")
-            return False
-
     def get_model_by_id(self, model_id: int) -> Optional[Dict[str, Any]]:
         """根据ID获取模型信息"""
         return self._model_db.get_model_by_id(model_id)
@@ -335,6 +322,10 @@ class ModelManager:
     def delete_model_by_id(self, model_id: int) -> bool:
         """根据ID删除模型"""
         return self._model_db.delete_model_by_id(model_id)
+
+    def delete_version_by_id(self, version_id: int) -> bool:
+        """根据版本ID删除模型版本"""
+        return self._version_db.delete_version_by_id(version_id)
 
     def get_model_by_hash(self, file_hash: str) -> Optional[Dict[str, Any]]:
         """根据文件哈希获取模型信息"""

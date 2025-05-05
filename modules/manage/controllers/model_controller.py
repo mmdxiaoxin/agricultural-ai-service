@@ -91,7 +91,7 @@ def update_model_controller(model_id, data):
 
 
 def delete_model_controller(model_id):
-    """删除模型"""
+    """删除模型版本"""
     try:
         # 获取模型信息
         model = ai_service.model_manager.get_model_by_id(model_id)
@@ -109,14 +109,17 @@ def delete_model_controller(model_id):
                 return ApiResponse.internal_error("删除模型文件失败")
 
         # 删除数据库记录
-        if not ai_service.model_manager.delete_model_by_id(model_id):
+        if not ai_service.model_manager.delete_version_by_id(model["version_id"]):
             return ApiResponse.internal_error("删除模型记录失败")
 
         # 清除缓存
         RedisClient.delete_cache(Config.MODEL_VERSIONS_CACHE_KEY)
 
+        # 重新加载模型
+        ai_service.model_manager._load_models()
+
         return ApiResponse.success(
-            message=f"模型删除成功: ID={model_id}",
+            message=f"模型版本删除成功: ID={model_id}",
             data={"model_id": model_id},
         )
     except Exception as e:

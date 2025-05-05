@@ -179,7 +179,7 @@ class VersionDB(DatabaseBase):
             logger.error(f"更新版本参数失败: {str(e)}")
             return False
 
-    def delete_version(self, version_id: int) -> bool:
+    def delete_version_by_id(self, version_id: int) -> bool:
         """删除版本"""
         try:
             with self.get_connection() as conn:

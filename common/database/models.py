@@ -426,3 +426,53 @@ class ModelDB(DatabaseBase):
         except Exception as e:
             logger.error(f"获取模型信息失败: {str(e)}")
             return None
+
+
+class VersionDB(DatabaseBase):
+    """版本数据库操作类"""
+
+    def delete_version_by_id(self, version_id: int) -> bool:
+        """根据版本ID删除版本信息"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                # 1. 删除版本-任务关联
+                cursor.execute(
+                    "DELETE FROM version_tasks WHERE version_id = ?", (version_id,)
+                )
+
+                # 2. 删除版本信息
+                cursor.execute("DELETE FROM versions WHERE id = ?", (version_id,))
+
+                conn.commit()
+                logger.info(f"成功删除版本: ID={version_id}")
+                return True
+        except Exception as e:
+            logger.error(f"删除版本失败: {str(e)}")
+            return False
+
+    def update_version_parameters(
+        self, version_id: int, parameters: Dict[str, Any]
+    ) -> bool:
+        """更新版本参数"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                now = self.get_current_timestamp()
+
+                cursor.execute(
+                    """
+                    UPDATE versions 
+                    SET parameters = ?, updated_at = ?
+                    WHERE id = ?
+                    """,
+                    (str(parameters), now, version_id),
+                )
+
+                conn.commit()
+                logger.info(f"成功更新版本参数: ID={version_id}")
+                return True
+        except Exception as e:
+            logger.error(f"更新版本参数失败: {str(e)}")
+            return False
