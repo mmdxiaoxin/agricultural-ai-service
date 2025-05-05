@@ -164,7 +164,6 @@ async function initModelList() {
                     <td>${model.description}</td>
                     <td>${new Date(model.created_at).toLocaleString()}</td>
                     <td>
-                        <button onclick="editModel(${model.model_id})">编辑</button>
                         <button onclick="handleDeleteModel(${model.version_id})">删除</button>
                     </td>
                 `;
