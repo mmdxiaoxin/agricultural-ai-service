@@ -49,7 +49,7 @@ ai_bp.route("/models/<int:model_id>", methods=["PUT"])(
 )
 
 # 模型删除路由
-ai_bp.route("/models/<int:model_id>", methods=["DELETE"])(
+ai_bp.route("/models/version/<int:version_id>", methods=["DELETE"])(
     apply_auth_decorators("admin", "expert")(delete_model_controller)
 )
 

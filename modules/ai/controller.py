@@ -473,18 +473,16 @@ def update_model_controller(model_id: int):
         return ApiResponse.internal_error(f"服务器内部错误: {str(e)}")
 
 
-def delete_model_controller(model_id: int):
-    """
-    删除模型
-    """
+def delete_model_controller(version_id: int):
+    """删除模型版本"""
     try:
         # 获取模型信息
-        model_data = ai_service.model_manager.get_model_by_id(model_id)
-        if not model_data:
-            return ApiResponse.not_found(f"未找到ID为 {model_id} 的模型")
+        version = ai_service.model_manager.get_model_by_version_id(version_id)
+        if not version:
+            return ApiResponse.not_found("模型不存在")
 
         # 删除模型文件
-        file_path = Path(model_data["file_path"])
+        file_path = Path(version["file_path"])
         if file_path.exists():
             try:
                 file_path.unlink()
@@ -494,20 +492,18 @@ def delete_model_controller(model_id: int):
                 return ApiResponse.internal_error("删除模型文件失败")
 
         # 删除数据库记录
-        if not ai_service.model_manager.delete_model_by_id(model_id):
+        if not ai_service.model_manager.delete_version_by_id(version["id"]):
             return ApiResponse.internal_error("删除模型记录失败")
 
         # 清除缓存
         RedisClient.delete_cache(Config.MODEL_VERSIONS_CACHE_KEY)
-        logger.info(f"模型删除成功: ID={model_id}")
 
         return ApiResponse.success(
-            message=f"模型删除成功: ID={model_id}",
-            data={"model_id": model_id},
+            message=f"模型版本删除成功: ID={version['id']}",
+            data={"model_id": version["model_id"]},
         )
-
     except Exception as e:
-        logger.error(f"删除模型时发生错误: {str(e)}")
+        logger.error(f"删除模型失败: {str(e)}")
         return ApiResponse.internal_error(f"服务器内部错误: {str(e)}")
 
 
