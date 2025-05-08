@@ -438,3 +438,44 @@ class ModelManager:
                     if task_type
                     else None
                 )
+
+    def initialize(self, model_db):
+        """初始化模型管理器"""
+        if self._initialized:
+            return
+
+        self._model_db = model_db
+        self._initialized = True
+
+        # 预加载常用模型
+        self._preload_models()
+
+    def _preload_models(self):
+        """预加载常用模型"""
+        try:
+            # 获取所有模型元数据
+            all_models = self._model_db.get_all_models()
+
+            # 预加载每个模型
+            for model_data in all_models:
+                if not isinstance(model_data, dict):
+                    continue
+
+                model_name = str(model_data.get("name", ""))
+                version = str(model_data.get("version", ""))
+                task_types = model_data.get("task_types", [])
+
+                if not model_name or not version or not task_types:
+                    continue
+
+                # 预加载YOLO模型
+                if model_name.startswith("yolo"):
+                    for task_type in task_types:
+                        self.get_yolo_model(model_name, version, task_type)
+                # 预加载ResNet模型
+                elif model_name.startswith("resnet"):
+                    self.get_resnet_model(model_name, version)
+
+            logger.info("模型预加载完成")
+        except Exception as e:
+            logger.error(f"模型预加载失败: {str(e)}")

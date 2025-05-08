@@ -78,15 +78,22 @@ def run_celery_worker(server_config):
     # 创建Celery实例
     celery = create_celery_app(app)
 
-    concurrency = min(server_config["threads"], 4)  # 最大4个worker
+    # 根据CPU核心数动态设置并发数
+    concurrency = min(server_config["threads"], 8)  # 最大8个worker
+
+    # 根据操作系统选择进程池
+    pool = "prefork" if os.name != "nt" else "solo"
 
     argv = [
         "worker",
-        "--loglevel=INFO",  # 只输出INFO级别日志 # WARNING则只输出警告和错误
-        "--pool=solo",  # Windows下使用solo池
-        f"--concurrency={concurrency}",  # 动态设置并发worker数
-        "--hostname=worker@%h",  # worker主机名
-        "--queues=detect,classify",  # 指定要处理的队列
+        "--loglevel=INFO",
+        f"--pool={pool}",
+        f"--concurrency={concurrency}",
+        "--hostname=worker@%h",
+        "--queues=detect,classify",
+        "--max-tasks-per-child=1000",  # 处理1000个任务后重启worker，防止内存泄漏
+        "--max-memory-per-child=1024000",  # 1GB内存限制
+        "--prefetch-multiplier=4",  # 每个worker预取4个任务
     ]
     celery.worker_main(argv)
 

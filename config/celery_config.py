@@ -34,12 +34,26 @@ class Config:
     task_soft_time_limit = 240  # 4分钟软超时
 
     # 工作进程配置
-    worker_prefetch_multiplier = 1  # 每个工作进程一次只处理一个任务
-    worker_max_tasks_per_child = 100  # 处理100个任务后重启工作进程
-    worker_max_memory_per_child = 512000  # 512MB内存限制
+    worker_prefetch_multiplier = 4  # 每个工作进程一次可以处理4个任务
+    worker_max_tasks_per_child = 1000  # 处理1000个任务后重启工作进程，防止内存泄漏
+    worker_max_memory_per_child = 1024000  # 1GB内存限制
 
     # 任务路由
     task_routes = {
-        "tasks.detect": {"queue": "detect"},
-        "tasks.classify": {"queue": "classify"},
+        "tasks.detect": {"queue": "detect", "routing_key": "detect"},
+        "tasks.classify": {"queue": "classify", "routing_key": "classify"},
+    }
+
+    # 任务队列配置
+    task_queues = {
+        "detect": {
+            "exchange": "detect",
+            "routing_key": "detect",
+            "queue_arguments": {"x-max-priority": 10},
+        },
+        "classify": {
+            "exchange": "classify",
+            "routing_key": "classify",
+            "queue_arguments": {"x-max-priority": 10},
+        },
     }
