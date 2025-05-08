@@ -86,7 +86,7 @@ def run_celery_worker(server_config):
 
     argv = [
         "worker",
-        "--loglevel=INFO",
+        "--loglevel=WARNING",
         f"--pool={pool}",
         f"--concurrency={concurrency}",
         "--hostname=worker@%h",
