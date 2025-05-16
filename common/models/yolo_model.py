@@ -7,6 +7,7 @@ import cv2
 from PIL import Image
 import io
 import torchvision.transforms as transforms
+import onnxruntime as ort
 
 from common.utils.exceptions import ModelError
 from common.utils.logger import log_manager
@@ -49,6 +50,7 @@ class BaseYOLOModel:
 
     提供基础的YOLO模型功能，包括模型加载、推理、参数更新等。
     支持单张图片和批量图片处理。
+    支持PyTorch和ONNX格式。
     """
 
     def __init__(
@@ -75,19 +77,65 @@ class BaseYOLOModel:
             self.params = params or DEFAULT_YOLO_PARAMS.copy()
             logger.info(f"模型参数: {self.params}")
 
-            logger.info("开始加载YOLO模型...")
-            self.model = YOLO(str(self.model_path))
-            logger.info(f"成功加载模型: {model_path}")
-            logger.info(f"模型设备: {self.model.device}")
-            logger.info(f"模型任务类型: {self.model.task}")
+            # 判断模型格式
+            self.is_onnx = str(self.model_path).endswith(".onnx")
+            if self.is_onnx:
+                self._load_onnx_model()
+            else:
+                self._load_torch_model()
+
+            logger.info(
+                f"成功加载模型: {model_path} ({'ONNX' if self.is_onnx else 'PyTorch'})"
+            )
 
         except Exception as e:
             logger.error(f"模型加载失败: {str(e)}", exc_info=True)
             raise ModelError(f"模型加载失败: {str(e)}")
 
+    def _load_onnx_model(self):
+        """加载ONNX模型"""
+        try:
+            # 创建ONNX运行时会话
+            providers = (
+                ["CUDAExecutionProvider", "CPUExecutionProvider"]
+                if torch.cuda.is_available()
+                else ["CPUExecutionProvider"]
+            )
+            self.session = ort.InferenceSession(
+                str(self.model_path), providers=providers
+            )
+
+            # 获取输入输出信息
+            self.input_name = self.session.get_inputs()[0].name
+            self.output_names = [output.name for output in self.session.get_outputs()]
+
+            # 获取输入形状
+            self.input_shape = self.session.get_inputs()[0].shape
+            logger.info(f"ONNX模型输入形状: {self.input_shape}")
+
+            # 获取模型元数据
+            self.metadata = self.session.get_modelmeta().custom_metadata_map
+            logger.info(f"ONNX模型元数据: {self.metadata}")
+
+        except Exception as e:
+            logger.error(f"ONNX模型加载失败: {str(e)}", exc_info=True)
+            raise ModelError(f"ONNX模型加载失败: {str(e)}")
+
+    def _load_torch_model(self):
+        """加载PyTorch模型"""
+        try:
+            logger.info("开始加载YOLO模型...")
+            self.model = YOLO(str(self.model_path))
+            logger.info(f"模型设备: {self.model.device}")
+            logger.info(f"模型任务类型: {self.model.task}")
+
+        except Exception as e:
+            logger.error(f"PyTorch模型加载失败: {str(e)}", exc_info=True)
+            raise ModelError(f"PyTorch模型加载失败: {str(e)}")
+
     def predict(
         self, image_data: Union[bytes, List[bytes]], batch_size: int = 1, **kwargs
-    ) -> Any:
+    ) -> Union[List[Dict[str, Any]], Dict[str, Any]]:
         """
         进行推理，支持单张图片和批量图片
 
@@ -97,7 +145,7 @@ class BaseYOLOModel:
             **kwargs: 额外的推理参数
 
         Returns:
-            YOLO 推理结果
+            Union[List[Dict[str, Any]], Dict[str, Any]]: 批量处理时返回结果列表，单张图片时返回单个结果
 
         Raises:
             ModelError: 当推理过程出错时抛出
@@ -118,7 +166,15 @@ class BaseYOLOModel:
                     logger.info(f"处理批次 {i//batch_size + 1}, 大小: {len(batch)}")
                     # 将bytes转换为numpy数组
                     batch_images = [bytes_to_numpy(img) for img in batch]
-                    batch_results = self.model(batch_images, **predict_params)
+                    if self.is_onnx:
+                        batch_results = self._onnx_predict_batch(
+                            batch_images, predict_params
+                        )
+                    else:
+                        batch_results = self.model(batch_images, **predict_params)
+                        # 确保结果是列表类型
+                        if not isinstance(batch_results, list):
+                            batch_results = [batch_results]
                     results.extend(batch_results)
                 logger.info(f"批量处理完成，共 {len(results)} 个结果")
                 return results
@@ -127,13 +183,127 @@ class BaseYOLOModel:
                 logger.info("开始单张图片处理...")
                 # 将bytes转换为numpy数组
                 image = bytes_to_numpy(image_data)
-                result = self.model(image, **predict_params)
+                if self.is_onnx:
+                    result = self._onnx_predict_single(image, predict_params)
+                else:
+                    result = self.model(image, **predict_params)
                 logger.info("单张图片处理完成")
                 return result
 
         except Exception as e:
             logger.error(f"推理过程出错: {str(e)}", exc_info=True)
             raise ModelError(f"推理过程出错: {str(e)}")
+
+    def _onnx_predict_batch(
+        self, images: List[np.ndarray], params: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        """ONNX批量推理"""
+        try:
+            # 预处理图像
+            processed_images = []
+            for img in images:
+                # 调整图像大小
+                img = cv2.resize(img, (self.input_shape[2], self.input_shape[3]))
+                # 转换为RGB
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                # 归一化
+                img = img.astype(np.float32) / 255.0
+                # 调整维度顺序 (H, W, C) -> (C, H, W)
+                img = img.transpose(2, 0, 1)
+                processed_images.append(img)
+
+            # 堆叠为批次
+            input_batch = np.stack(processed_images)
+
+            # 推理
+            outputs = self.session.run(
+                self.output_names, {self.input_name: input_batch}
+            )
+
+            # 后处理结果
+            results = []
+            # 确保outputs[0]是numpy数组
+            if isinstance(outputs[0], np.ndarray):
+                for i in range(len(outputs[0])):
+                    output = outputs[0][i]
+                    # 解析检测结果
+                    boxes = output[:, :4]  # 边界框
+                    scores = output[:, 4]  # 置信度
+                    class_ids = output[:, 5]  # 类别ID
+
+                    # 应用NMS
+                    indices = cv2.dnn.NMSBoxes(
+                        boxes.tolist(),
+                        scores.tolist(),
+                        params["conf"],
+                        params["iou"],
+                    )
+
+                    # 构建结果
+                    result = {
+                        "boxes": boxes[indices],
+                        "scores": scores[indices],
+                        "class_ids": class_ids[indices],
+                    }
+                    results.append(result)
+            else:
+                logger.warning("ONNX输出格式不符合预期")
+                return []
+
+            return results
+
+        except Exception as e:
+            logger.error(f"ONNX批量推理失败: {str(e)}", exc_info=True)
+            raise ModelError(f"ONNX批量推理失败: {str(e)}")
+
+    def _onnx_predict_single(
+        self, image: np.ndarray, params: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """ONNX单张图片推理"""
+        try:
+            # 预处理图像
+            img = cv2.resize(image, (self.input_shape[2], self.input_shape[3]))
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            img = img.astype(np.float32) / 255.0
+            img = img.transpose(2, 0, 1)
+            img = np.expand_dims(img, axis=0)
+
+            # 推理
+            outputs = self.session.run(self.output_names, {self.input_name: img})
+
+            # 后处理结果
+            if isinstance(outputs[0], np.ndarray) and len(outputs[0]) > 0:
+                output = outputs[0][0]  # 假设第一个输出是检测结果
+                boxes = output[:, :4]  # 边界框
+                scores = output[:, 4]  # 置信度
+                class_ids = output[:, 5]  # 类别ID
+
+                # 应用NMS
+                indices = cv2.dnn.NMSBoxes(
+                    boxes.tolist(),
+                    scores.tolist(),
+                    params["conf"],
+                    params["iou"],
+                )
+
+                # 构建结果
+                result = {
+                    "boxes": boxes[indices],
+                    "scores": scores[indices],
+                    "class_ids": class_ids[indices],
+                }
+                return result
+            else:
+                logger.warning("ONNX输出格式不符合预期")
+                return {
+                    "boxes": np.array([]),
+                    "scores": np.array([]),
+                    "class_ids": np.array([]),
+                }
+
+        except Exception as e:
+            logger.error(f"ONNX单张图片推理失败: {str(e)}", exc_info=True)
+            raise ModelError(f"ONNX单张图片推理失败: {str(e)}")
 
     def update_params(self, **kwargs) -> None:
         """
@@ -170,7 +340,13 @@ class BaseYOLOModel:
         """
         try:
             save_path = Path(save_path)
-            self.model.save(str(save_path))
+            if self.is_onnx:
+                # 复制ONNX模型文件
+                import shutil
+
+                shutil.copy2(self.model_path, save_path)
+            else:
+                self.model.save(str(save_path))
             logger.info(f"模型已保存到: {save_path}")
 
         except Exception as e:
@@ -193,7 +369,11 @@ class BaseYOLOModel:
                 raise FileNotFoundError(f"模型文件不存在: {model_path}")
 
             self.model_path = model_path
-            self.model = YOLO(str(model_path))
+            self.is_onnx = str(model_path).endswith(".onnx")
+            if self.is_onnx:
+                self._load_onnx_model()
+            else:
+                self._load_torch_model()
             logger.info(f"成功加载新模型: {model_path}")
 
         except Exception as e:
@@ -207,12 +387,29 @@ class BaseYOLOModel:
         Returns:
             包含模型信息的字典
         """
-        return {
+        info = {
             "model_path": str(self.model_path),
             "parameters": self.params,
-            "device": self.model.device,
-            "task": self.model.task,
+            "format": "ONNX" if self.is_onnx else "PyTorch",
         }
+
+        if self.is_onnx:
+            info.update(
+                {
+                    "input_shape": self.input_shape,
+                    "output_names": self.output_names,
+                    "metadata": self.metadata,
+                }
+            )
+        else:
+            info.update(
+                {
+                    "device": self.model.device,
+                    "task": self.model.task,
+                }
+            )
+
+        return info
 
 
 class DetectYOLOModel(BaseYOLOModel):
@@ -257,7 +454,9 @@ class DetectYOLOModel(BaseYOLOModel):
             logger.error(f"目标检测失败: {str(e)}", exc_info=True)
             raise ModelError(f"目标检测失败: {str(e)}")
 
-    def _parse_detect_results(self, results: List[Any]) -> List[Dict[str, Any]]:
+    def _parse_detect_results(
+        self, results: Union[List[Any], Any]
+    ) -> List[Dict[str, Any]]:
         """
         解析推理结果，返回包含 bbox 对象的结果
 
@@ -267,30 +466,36 @@ class DetectYOLOModel(BaseYOLOModel):
         Returns:
             解析后的结果列表
         """
+        if not isinstance(results, list):
+            results = [results]
+
         parsed_results = []
         for result in results:
-            boxes = result.boxes
-            names = result.names
-            for box in boxes:
-                class_id = int(box.cls.cpu())
-                bbox_list = box.xyxy.cpu().squeeze().tolist()
-                bbox_list = [int(coord) for coord in bbox_list]
+            # 确保结果是可迭代的
+            if hasattr(result, "boxes"):
+                boxes = result.boxes
+                names = result.names
+                for box in boxes:
+                    # 确保数据在CPU上并转换为Python类型
+                    class_id = int(box.cls.cpu().numpy())
+                    bbox_list = box.xyxy.cpu().numpy().squeeze().tolist()
+                    bbox_list = [int(coord) for coord in bbox_list]
 
-                result_item = {
-                    "type": "detect",
-                    "class_name": names[class_id],
-                    "confidence": float(box.conf.cpu().squeeze().item()),
-                    "bbox": {
-                        "x": bbox_list[0],
-                        "y": bbox_list[1],
-                        "width": bbox_list[2] - bbox_list[0],
-                        "height": bbox_list[3] - bbox_list[1],
-                    },
-                    "class_id": class_id,
-                    "area": (bbox_list[2] - bbox_list[0])
-                    * (bbox_list[3] - bbox_list[1]),
-                }
-                parsed_results.append(result_item)
+                    result_item = {
+                        "type": "detect",
+                        "class_name": names[class_id],
+                        "confidence": float(box.conf.cpu().numpy().squeeze()),
+                        "bbox": {
+                            "x": bbox_list[0],
+                            "y": bbox_list[1],
+                            "width": bbox_list[2] - bbox_list[0],
+                            "height": bbox_list[3] - bbox_list[1],
+                        },
+                        "class_id": class_id,
+                        "area": (bbox_list[2] - bbox_list[0])
+                        * (bbox_list[3] - bbox_list[1]),
+                    }
+                    parsed_results.append(result_item)
         return parsed_results
 
 
@@ -320,7 +525,9 @@ class ClassifyYOLOModel(BaseYOLOModel):
         results = self.predict(image_data, batch_size)
         return self._parse_classify_results(results)
 
-    def _parse_classify_results(self, results: List[Any]) -> List[Dict[str, Any]]:
+    def _parse_classify_results(
+        self, results: Union[List[Any], Any]
+    ) -> List[Dict[str, Any]]:
         """
         解析推理结果
 
@@ -330,26 +537,31 @@ class ClassifyYOLOModel(BaseYOLOModel):
         Returns:
             解析后的结果列表
         """
+        if not isinstance(results, list):
+            results = [results]
+
         parsed_results = []
         for result in results:
-            top1_index = result.probs.top1
-            top1_label = result.names[top1_index]
-            top1_confidence = result.probs.top1conf.item()
+            if hasattr(result, "probs"):
+                # 确保数据在CPU上并转换为Python类型
+                top1_index = int(result.probs.top1.cpu().numpy())
+                top1_label = result.names[top1_index]
+                top1_confidence = float(result.probs.top1conf.cpu().numpy())
 
-            # 获取前5个最可能的类别
-            top5_indices = result.probs.top5
-            top5_confidences = result.probs.top5conf.tolist()
-            top5_labels = [result.names[i] for i in top5_indices]
+                # 获取前5个最可能的类别
+                top5_indices = result.probs.top5.cpu().numpy()
+                top5_confidences = result.probs.top5conf.cpu().numpy().tolist()
+                top5_labels = [result.names[i] for i in top5_indices]
 
-            result_info = {
-                "type": "classify",
-                "class_id": top1_index,
-                "class_name": top1_label,
-                "confidence": float(top1_confidence),
-                "top5": [
-                    {"class_name": label, "confidence": float(conf)}
-                    for label, conf in zip(top5_labels, top5_confidences)
-                ],
-            }
-            parsed_results.append(result_info)
+                result_info = {
+                    "type": "classify",
+                    "class_id": top1_index,
+                    "class_name": top1_label,
+                    "confidence": top1_confidence,
+                    "top5": [
+                        {"class_name": label, "confidence": float(conf)}
+                        for label, conf in zip(top5_labels, top5_confidences)
+                    ],
+                }
+                parsed_results.append(result_info)
         return parsed_results

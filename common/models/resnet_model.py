@@ -5,6 +5,8 @@ import torchvision.transforms as transforms
 from pathlib import Path
 import io
 from PIL import Image
+import onnxruntime as ort
+import numpy as np
 
 from config.resnet_config import ResNetConfig
 from common.utils.exceptions import ModelError
@@ -14,7 +16,7 @@ logger = log_manager.get_logger(__name__)
 
 
 class ResNetModel:
-    """通用的ResNet模型类，支持不同版本的ResNet模型"""
+    """通用的ResNet模型类，支持不同版本的ResNet模型和ONNX格式"""
 
     def __init__(
         self,
@@ -55,20 +57,55 @@ class ResNetModel:
             )
             logger.info(f"使用设备: {self.device}")
 
-            # 加载模型权重
-            self._load_model(version)
+            # 判断模型格式并加载
+            self.is_onnx = str(self.model_path).endswith(".onnx")
+            if self.is_onnx:
+                self._load_onnx_model()
+            else:
+                self._load_torch_model(version)
 
             # 设置图像预处理
             self._setup_transforms()
 
-            logger.info(f"成功加载ResNet模型: {version}")
+            logger.info(
+                f"成功加载ResNet模型: {version} ({'ONNX' if self.is_onnx else 'PyTorch'})"
+            )
 
         except Exception as e:
             logger.error(f"ResNet模型加载失败: {str(e)}", exc_info=True)
             raise ModelError(f"ResNet模型加载失败: {str(e)}")
 
-    def _load_model(self, version: str):
-        """加载模型"""
+    def _load_onnx_model(self):
+        """加载ONNX模型"""
+        try:
+            # 创建ONNX运行时会话
+            providers = (
+                ["CUDAExecutionProvider", "CPUExecutionProvider"]
+                if torch.cuda.is_available()
+                else ["CPUExecutionProvider"]
+            )
+            self.session = ort.InferenceSession(
+                str(self.model_path), providers=providers
+            )
+
+            # 获取输入输出信息
+            self.input_name = self.session.get_inputs()[0].name
+            self.output_name = self.session.get_outputs()[0].name
+
+            # 获取输入形状
+            self.input_shape = self.session.get_inputs()[0].shape
+            logger.info(f"ONNX模型输入形状: {self.input_shape}")
+
+            # 获取类别数量
+            self.num_classes = self.session.get_outputs()[0].shape[1]
+            logger.info(f"ONNX模型类别数量: {self.num_classes}")
+
+        except Exception as e:
+            logger.error(f"ONNX模型加载失败: {str(e)}", exc_info=True)
+            raise ModelError(f"ONNX模型加载失败: {str(e)}")
+
+    def _load_torch_model(self, version: str):
+        """加载PyTorch模型"""
         try:
             # 加载模型权重
             checkpoint = torch.load(str(self.model_path), map_location=self.device)
@@ -103,8 +140,8 @@ class ResNetModel:
                 logger.info(f"加载类别映射，共 {len(self.classes)} 个类别")
 
         except Exception as e:
-            logger.error(f"模型加载失败: {str(e)}", exc_info=True)
-            raise ModelError(f"模型加载失败: {str(e)}")
+            logger.error(f"PyTorch模型加载失败: {str(e)}", exc_info=True)
+            raise ModelError(f"PyTorch模型加载失败: {str(e)}")
 
     def _setup_transforms(self):
         """设置图像预处理"""
@@ -115,6 +152,146 @@ class ResNetModel:
                 transforms.Normalize(mean=self.params["mean"], std=self.params["std"]),
             ]
         )
+
+    def _process_batch(
+        self, batch: List[bytes], params: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        """处理批量图片"""
+        batch_tensors = []
+        for img_bytes in batch:
+            img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+            img_tensor = self.transform(img)
+            batch_tensors.append(img_tensor)
+
+        # 堆叠为批次
+        input_batch = torch.stack(batch_tensors)
+
+        if self.is_onnx:
+            # ONNX推理
+            input_batch = input_batch.numpy()
+            outputs = self.session.run(
+                [self.output_name], {self.input_name: input_batch}
+            )[0]
+            probabilities = torch.nn.functional.softmax(
+                torch.from_numpy(outputs), dim=1
+            )
+        else:
+            # PyTorch推理
+            input_batch = input_batch.to(self.device)
+            if params.get("half", False) and self.device.type != "cpu":
+                input_batch = input_batch.half()
+            with torch.no_grad():
+                outputs = self.model(input_batch)
+                probabilities = torch.nn.functional.softmax(outputs, dim=1)
+
+        predicted_probs, predicted_classes = torch.max(probabilities, 1)
+        top5_probs, top5_indices = torch.topk(probabilities, 5, dim=1)
+
+        # 处理每张图片的结果
+        results = []
+        for i, (prob, class_idx) in enumerate(zip(predicted_probs, predicted_classes)):
+            class_idx = class_idx.item()
+            prob = prob.item()
+
+            # 获取类别名称
+            if hasattr(self, "classes") and self.classes:
+                class_name = self.classes[class_idx]
+            else:
+                class_name = f"Class_{class_idx}"
+
+            # 获取top5预测结果
+            top5_results = []
+            for j in range(5):
+                top5_class_idx = top5_indices[i][j].item()
+                top5_prob = top5_probs[i][j].item()
+                if hasattr(self, "classes") and self.classes:
+                    top5_class_name = self.classes[top5_class_idx]
+                else:
+                    top5_class_name = f"Class_{top5_class_idx}"
+                top5_results.append(
+                    {
+                        "class_id": top5_class_idx,
+                        "class_name": top5_class_name,
+                        "confidence": top5_prob,
+                    }
+                )
+
+            result = {
+                "class_id": class_idx,
+                "class_name": class_name,
+                "confidence": prob,
+                "type": "classify",
+                "top5": top5_results,
+            }
+            results.append(result)
+
+        return results
+
+    def _process_single(
+        self, image_data: bytes, params: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """处理单张图片"""
+        img = Image.open(io.BytesIO(image_data)).convert("RGB")
+        img_tensor = self.transform(img)
+        if not isinstance(img_tensor, torch.Tensor):
+            img_tensor = torch.from_numpy(img_tensor)
+        img_tensor = img_tensor.unsqueeze(0)
+
+        if self.is_onnx:
+            # ONNX推理
+            img_tensor = img_tensor.numpy()
+            outputs = self.session.run(
+                [self.output_name], {self.input_name: img_tensor}
+            )[0]
+            probabilities = torch.nn.functional.softmax(
+                torch.from_numpy(outputs), dim=1
+            )
+        else:
+            # PyTorch推理
+            img_tensor = img_tensor.to(self.device)
+            if params.get("half", False) and self.device.type != "cpu":
+                img_tensor = img_tensor.half()
+            with torch.no_grad():
+                outputs = self.model(img_tensor)
+                probabilities = torch.nn.functional.softmax(outputs, dim=1)
+
+        predicted_prob, predicted_class = torch.max(probabilities, 1)
+        top5_probs, top5_indices = torch.topk(probabilities, 5, dim=1)
+
+        # 获取预测结果
+        class_idx = predicted_class.item()
+        prob = predicted_prob.item()
+
+        # 获取类别名称
+        if hasattr(self, "classes") and self.classes:
+            class_name = self.classes[class_idx]
+        else:
+            class_name = f"Class_{class_idx}"
+
+        # 获取top5预测结果
+        top5_results = []
+        for i in range(5):
+            top5_class_idx = top5_indices[0][i].item()
+            top5_prob = top5_probs[0][i].item()
+            if hasattr(self, "classes") and self.classes:
+                top5_class_name = self.classes[top5_class_idx]
+            else:
+                top5_class_name = f"Class_{top5_class_idx}"
+            top5_results.append(
+                {
+                    "class_id": top5_class_idx,
+                    "class_name": top5_class_name,
+                    "confidence": top5_prob,
+                }
+            )
+
+        return {
+            "class_id": class_idx,
+            "class_name": class_name,
+            "confidence": prob,
+            "type": "classify",
+            "top5": top5_results,
+        }
 
     def predict(
         self, image_data: Union[bytes, List[bytes]], batch_size: int = 1, **kwargs
@@ -162,126 +339,6 @@ class ResNetModel:
             logger.error(f"ResNet推理过程出错: {str(e)}", exc_info=True)
             raise ModelError(f"ResNet推理过程出错: {str(e)}")
 
-    def _process_batch(
-        self, batch: List[bytes], params: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
-        """处理批量图片"""
-        batch_tensors = []
-        for img_bytes in batch:
-            img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-            img_tensor = self.transform(img)
-            batch_tensors.append(img_tensor)
-
-        # 堆叠为批次
-        input_batch = torch.stack(batch_tensors).to(self.device)
-
-        # 如果使用半精度
-        if params.get("half", False) and self.device.type != "cpu":
-            input_batch = input_batch.half()
-
-        # 推理
-        with torch.no_grad():
-            outputs = self.model(input_batch)
-            probabilities = torch.nn.functional.softmax(outputs, dim=1)
-            predicted_probs, predicted_classes = torch.max(probabilities, 1)
-            # 获取top5预测结果
-            top5_probs, top5_indices = torch.topk(probabilities, 5, dim=1)
-
-        # 处理每张图片的结果
-        results = []
-        for i, (prob, class_idx) in enumerate(zip(predicted_probs, predicted_classes)):
-            class_idx = class_idx.item()
-            prob = prob.item()
-
-            # 获取类别名称
-            if self.classes:
-                class_name = self.classes[class_idx]
-            else:
-                class_name = f"Class_{class_idx}"
-
-            # 获取top5预测结果
-            top5_results = []
-            for j in range(5):
-                top5_class_idx = top5_indices[i][j].item()
-                top5_prob = top5_probs[i][j].item()
-                if self.classes:
-                    top5_class_name = self.classes[top5_class_idx]
-                else:
-                    top5_class_name = f"Class_{top5_class_idx}"
-                top5_results.append(
-                    {
-                        "class_id": top5_class_idx,
-                        "class_name": top5_class_name,
-                        "confidence": top5_prob,
-                    }
-                )
-
-            result = {
-                "class_id": class_idx,
-                "class_name": class_name,
-                "confidence": prob,
-                "type": "classify",
-                "top5": top5_results,
-            }
-            results.append(result)
-
-        return results
-
-    def _process_single(
-        self, image_data: bytes, params: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """处理单张图片"""
-        img = Image.open(io.BytesIO(image_data)).convert("RGB")
-        img_tensor = self.transform(img)
-        img_tensor = img_tensor.unsqueeze(0).to(self.device)  # type: ignore
-
-        # 如果使用半精度
-        if params.get("half", False) and self.device.type != "cpu":
-            img_tensor = img_tensor.half()
-
-        # 推理
-        with torch.no_grad():
-            outputs = self.model(img_tensor)
-            probabilities = torch.nn.functional.softmax(outputs, dim=1)
-            predicted_prob, predicted_class = torch.max(probabilities, 1)
-            # 获取top5预测结果
-            top5_probs, top5_indices = torch.topk(probabilities, 5, dim=1)
-
-        # 获取预测结果
-        class_idx = predicted_class.item()
-        prob = predicted_prob.item()
-
-        # 获取类别名称
-        if self.classes:
-            class_name = self.classes[class_idx]
-        else:
-            class_name = f"Class_{class_idx}"
-
-        # 获取top5预测结果
-        top5_results = []
-        for i in range(5):
-            top5_class_idx = top5_indices[0][i].item()
-            top5_prob = top5_probs[0][i].item()
-            if self.classes:
-                top5_class_name = self.classes[top5_class_idx]
-            else:
-                top5_class_name = f"Class_{top5_class_idx}"
-            top5_results.append(
-                {
-                    "class_id": top5_class_idx,
-                    "class_name": top5_class_name,
-                    "confidence": top5_prob,
-                }
-            )
-
-        return {
-            "class_id": class_idx,
-            "class_name": class_name,
-            "confidence": prob,
-            "type": "classify",
-            "top5": top5_results,
-        }
-
     def classify(
         self, image_data: Union[bytes, List[bytes]], batch_size: int = 1
     ) -> List[Dict[str, Any]]:
@@ -325,6 +382,9 @@ class ResNetModel:
             "model_path": str(self.model_path),
             "parameters": self.params,
             "version": self.params.get("version", "resnet18"),
-            "num_classes": len(self.classes) if self.classes else None,
+            "num_classes": (
+                len(self.classes) if hasattr(self, "classes") and self.classes else None
+            ),
             "device": str(self.device),
+            "format": "ONNX" if self.is_onnx else "PyTorch",
         }
