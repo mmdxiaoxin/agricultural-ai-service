@@ -571,6 +571,7 @@ def create_upload_task_controller():
             "chunks": {},
             "description": request.form.get("description", ""),
             "status": "uploading",
+            "original_extension": request.form.get("original_extension", "pt"),
         }
 
         # 将任务信息存入Redis
@@ -671,7 +672,9 @@ def merge_chunks_controller():
             return ApiResponse.not_found("分片目录不存在")
 
         # 生成最终文件名
-        original_extension = "pt"  # PyTorch模型文件扩展名
+        original_extension = task_info.get(
+            "original_extension", "pt"
+        )  # 从任务信息中获取原始扩展名，如果没有则默认使用pt
         filename = f"{uuid.uuid4()}.{original_extension}"
         save_path = Config.get_model_path(filename)
 

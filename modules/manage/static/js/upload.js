@@ -22,6 +22,10 @@ async function createUploadTask() {
     formData.append('total_size', file.size);
     formData.append('total_chunks', totalChunks);
     
+    // 添加原始文件后缀名
+    const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.') + 1);
+    formData.append('original_extension', fileExtension);
+    
     try {
         const response = await fetch('/manage/api/models/upload/create', {
             method: 'POST',
