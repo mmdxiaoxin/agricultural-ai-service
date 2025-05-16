@@ -64,6 +64,9 @@ __pycache__
 *.pth.tar.lz4.lz4.lzma
 *.pth.tar.lz4.lz4.lz4
 
+# ONNX
+*.onnx
+
 # vs code
 .vscode
 
