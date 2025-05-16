@@ -476,10 +476,40 @@ class DetectYOLOModel(BaseYOLOModel):
         Returns:
             解析后的结果列表
         """
+        parsed_results = []
+
+        # 处理ONNX模型的结果（dict类型）
+        if isinstance(results, dict):
+            if "boxes" in results and len(results["boxes"]) > 0:
+                boxes = results["boxes"]
+                scores = results["scores"]
+                class_ids = results["class_ids"]
+
+                for i in range(len(boxes)):
+                    box = boxes[i]
+                    score = scores[i]
+                    class_id = int(class_ids[i])
+
+                    result_item = {
+                        "type": "detect",
+                        "class_name": f"Class_{class_id}",  # 如果没有类别映射，使用默认名称
+                        "confidence": float(score),
+                        "bbox": {
+                            "x": int(box[0]),
+                            "y": int(box[1]),
+                            "width": int(box[2] - box[0]),
+                            "height": int(box[3] - box[1]),
+                        },
+                        "class_id": class_id,
+                        "area": int((box[2] - box[0]) * (box[3] - box[1])),
+                    }
+                    parsed_results.append(result_item)
+            return parsed_results
+
+        # 处理非ONNX模型的结果（list类型）
         if not isinstance(results, list):
             results = [results]
 
-        parsed_results = []
         for result in results:
             # 确保结果是可迭代的
             if hasattr(result, "boxes"):
