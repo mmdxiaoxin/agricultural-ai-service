@@ -45,11 +45,55 @@ class ModelManager:
             self._model_locks: Dict[str, threading.Lock] = {}  # 每个模型的操作锁
             self._initialized = True
 
+            # 配置ONNX Runtime
+            self._configure_onnx_runtime()
+
             # 验证数据库数据完整性
             if not self._db_utils.verify_model_data():
                 logger.error("数据库验证失败，模型数据可能不完整")
 
             self._load_models()
+
+    def _configure_onnx_runtime(self):
+        """配置ONNX Runtime"""
+        try:
+            import onnxruntime as ort
+
+            # 设置日志级别为WARNING
+            ort.set_default_logger_severity(2)  # 2 = WARNING
+
+            # 创建会话选项
+            self._session_options = ort.SessionOptions()
+
+            # 配置CUDA执行提供程序选项
+            cuda_provider_options = {
+                "device_id": 0,
+                "arena_extend_strategy": "kNextPowerOfTwo",
+                "gpu_mem_limit": 2 * 1024 * 1024 * 1024,  # 2GB
+                "cudnn_conv_algo_search": "EXHAUSTIVE",
+                "do_copy_in_default_stream": False,  # 禁用默认流中的拷贝
+                "enable_cuda_graph": True,  # 启用CUDA图优化
+                "cuda_graph_compile_mode": "LAZY",  # 使用延迟编译模式
+                "enable_mem_pattern": True,  # 启用内存模式优化
+                "enable_mem_reuse": True,  # 启用内存重用
+            }
+
+            # 设置会话选项
+            self._session_options.graph_optimization_level = (
+                ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+            )
+            self._session_options.intra_op_num_threads = 1
+            self._session_options.inter_op_num_threads = 1
+            self._session_options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+            self._session_options.enable_mem_pattern = True  # 启用内存模式优化
+            self._session_options.enable_mem_reuse = True  # 启用内存重用
+            self._session_options.enable_cpu_mem_arena = True  # 启用CPU内存池
+
+            logger.info("ONNX Runtime配置完成")
+
+        except Exception as e:
+            logger.warning(f"ONNX Runtime配置失败: {str(e)}")
+            self._session_options = None
 
     def _get_model_lock(self, model_key: str) -> threading.Lock:
         """获取模型的操作锁"""
@@ -145,6 +189,9 @@ class ModelManager:
                                             ] = DetectYOLOModel(
                                                 model_data["file_path"],
                                                 model_data["parameters"],
+                                                session_options=getattr(
+                                                    self, "_session_options", None
+                                                ),
                                             )
                                             logger.info(
                                                 f"成功加载YOLO检测模型: {model_name}-{version}"
@@ -155,6 +202,9 @@ class ModelManager:
                                             ] = ClassifyYOLOModel(
                                                 model_data["file_path"],
                                                 model_data["parameters"],
+                                                session_options=getattr(
+                                                    self, "_session_options", None
+                                                ),
                                             )
                                             logger.info(
                                                 f"成功加载YOLO分类模型: {model_name}-{version}"
@@ -170,6 +220,9 @@ class ModelManager:
                                             model_data["file_path"],
                                             version=resnet_version,
                                             params=model_data["parameters"],
+                                            session_options=getattr(
+                                                self, "_session_options", None
+                                            ),
                                         )
                                     )
                                     logger.info(
@@ -264,12 +317,16 @@ class ModelManager:
                 # 加载模型
                 if task_type == "detect":
                     self._yolo_models[model_name][version][task_type] = DetectYOLOModel(
-                        model_data["file_path"], model_data["parameters"]
+                        model_data["file_path"],
+                        model_data["parameters"],
+                        session_options=getattr(self, "_session_options", None),
                     )
                 elif task_type == "classify":
                     self._yolo_models[model_name][version][task_type] = (
                         ClassifyYOLOModel(
-                            model_data["file_path"], model_data["parameters"]
+                            model_data["file_path"],
+                            model_data["parameters"],
+                            session_options=getattr(self, "_session_options", None),
                         )
                     )
 
@@ -401,6 +458,7 @@ class ModelManager:
                         model_data["file_path"],
                         version=resnet_version,
                         params=model_data["parameters"],
+                        session_options=getattr(self, "_session_options", None),
                     )
                 return self._resnet_models[model_name][version]
             else:
@@ -424,13 +482,17 @@ class ModelManager:
                     if task_type == "detect":
                         self._yolo_models[model_name][version][task_type] = (
                             DetectYOLOModel(
-                                model_data["file_path"], model_data["parameters"]
+                                model_data["file_path"],
+                                model_data["parameters"],
+                                session_options=getattr(self, "_session_options", None),
                             )
                         )
                     elif task_type == "classify":
                         self._yolo_models[model_name][version][task_type] = (
                             ClassifyYOLOModel(
-                                model_data["file_path"], model_data["parameters"]
+                                model_data["file_path"],
+                                model_data["parameters"],
+                                session_options=getattr(self, "_session_options", None),
                             )
                         )
                 return (

@@ -23,6 +23,7 @@ class ResNetModel:
         model_path: Union[str, Path],
         version: str = "resnet18",
         params: Optional[Dict[str, Any]] = None,
+        session_options: Optional[Any] = None,
     ):
         """
         初始化ResNet模型
@@ -31,6 +32,7 @@ class ResNetModel:
             model_path: 模型路径
             version: ResNet版本，支持: resnet18, resnet34, resnet50, resnet101, resnet152
             params: 初始化参数
+            session_options: ONNX Runtime会话选项
 
         Raises:
             ModelError: 当模型加载失败时抛出
@@ -50,6 +52,9 @@ class ResNetModel:
             self.params = ResNetConfig.get_default_config(version)
             if params:
                 self.params.update(params)
+
+            # 保存会话选项
+            self.session_options = session_options
 
             # 设置设备
             self.device = torch.device(
@@ -85,7 +90,9 @@ class ResNetModel:
                 else ["CPUExecutionProvider"]
             )
             self.session = ort.InferenceSession(
-                str(self.model_path), providers=providers
+                str(self.model_path),
+                providers=providers,
+                sess_options=self.session_options,
             )
 
             # 获取输入输出信息

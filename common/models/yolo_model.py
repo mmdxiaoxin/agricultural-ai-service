@@ -54,7 +54,10 @@ class BaseYOLOModel:
     """
 
     def __init__(
-        self, model_path: Union[str, Path], params: Optional[Dict[str, Any]] = None
+        self,
+        model_path: Union[str, Path],
+        params: Optional[Dict[str, Any]] = None,
+        session_options: Optional[Any] = None,
     ):
         """
         初始化 YOLO 模型
@@ -62,6 +65,7 @@ class BaseYOLOModel:
         Args:
             model_path: 模型路径
             params: YOLO 初始化参数
+            session_options: ONNX Runtime会话选项
 
         Raises:
             ModelError: 当模型加载失败时抛出
@@ -76,6 +80,9 @@ class BaseYOLOModel:
 
             self.params = params or DEFAULT_YOLO_PARAMS.copy()
             logger.info(f"模型参数: {self.params}")
+
+            # 保存会话选项
+            self.session_options = session_options
 
             # 判断模型格式
             self.is_onnx = str(self.model_path).endswith(".onnx")
@@ -102,7 +109,9 @@ class BaseYOLOModel:
                 else ["CPUExecutionProvider"]
             )
             self.session = ort.InferenceSession(
-                str(self.model_path), providers=providers
+                str(self.model_path),
+                providers=providers,
+                sess_options=self.session_options,
             )
 
             # 获取输入输出信息
@@ -419,8 +428,9 @@ class DetectYOLOModel(BaseYOLOModel):
         self,
         model_path: Union[str, Path],
         params: Optional[Dict[str, Any]] = None,
+        session_options: Optional[Any] = None,
     ):
-        super().__init__(model_path, params)
+        super().__init__(model_path, params, session_options)
 
     def detect(
         self, image_data: Union[bytes, List[bytes]], batch_size: int = 1
@@ -506,8 +516,9 @@ class ClassifyYOLOModel(BaseYOLOModel):
         self,
         model_path: Union[str, Path],
         params: Optional[Dict[str, Any]] = None,
+        session_options: Optional[Any] = None,
     ):
-        super().__init__(model_path, params)
+        super().__init__(model_path, params, session_options)
 
     def classify(
         self, image_data: Union[bytes, List[bytes]], batch_size: int = 1
