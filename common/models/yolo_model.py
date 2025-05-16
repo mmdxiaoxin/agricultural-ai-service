@@ -126,6 +126,14 @@ class BaseYOLOModel:
             self.metadata = self.session.get_modelmeta().custom_metadata_map
             logger.info(f"ONNX模型元数据: {self.metadata}")
 
+            # 获取类别名称
+            if "names" in self.metadata:
+                self.class_names = eval(self.metadata["names"])
+                logger.info(f"ONNX模型类别名称: {self.class_names}")
+            else:
+                self.class_names = None
+                logger.warning("ONNX模型未定义类别名称")
+
         except Exception as e:
             logger.error(f"ONNX模型加载失败: {str(e)}", exc_info=True)
             raise ModelError(f"ONNX模型加载失败: {str(e)}")
@@ -490,10 +498,21 @@ class DetectYOLOModel(BaseYOLOModel):
                     score = scores[i]
                     class_id = int(class_ids[i])
 
+                    # 归一化置信度（如果大于1，则除以100）
+                    confidence = float(score)
+                    if confidence > 1:
+                        confidence = confidence / 100.0
+
+                    # 获取类别名称
+                    if hasattr(self, "class_names") and self.class_names:
+                        class_name = self.class_names.get(class_id, f"Class_{class_id}")
+                    else:
+                        class_name = f"Class_{class_id}"
+
                     result_item = {
                         "type": "detect",
-                        "class_name": f"Class_{class_id}",  # 如果没有类别映射，使用默认名称
-                        "confidence": float(score),
+                        "class_name": class_name,
+                        "confidence": confidence,
                         "bbox": {
                             "x": int(box[0]),
                             "y": int(box[1]),
