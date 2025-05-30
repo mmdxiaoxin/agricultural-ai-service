@@ -30,4 +30,7 @@ dependencies:
       - python-dotenv==1.0.1
       - gunicorn==23.0.0
       - waitress==3.0.2
+      - onnx==1.16.0
+      - onnxruntime==1.17.0
+      - onnxruntime-gpu==1.17.0
 prefix: C:\Users\mmdxiaoxin\miniconda3\envs\pytorch_310

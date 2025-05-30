@@ -7,6 +7,7 @@
 - 基于Flask的Web服务
 - Celery异步任务处理
 - 支持多种AI模型集成
+- 支持ONNX模型部署和推理
 - 跨域支持
 - 完整的日志系统
 - 可配置的服务器参数
@@ -19,6 +20,7 @@
 - Python 3.8+
 - Redis服务器
 - CUDA支持（可选，用于GPU加速）
+- ONNX Runtime（用于模型推理）
 
 ## API接口说明
 
@@ -35,9 +37,11 @@
   - 病害诊断
   - 作物生长状态评估
   - 产量预测
+  - ONNX模型推理
   - 其他AI相关服务
 
 使用示例：
+
 ```bash
 # 获取访问令牌
 curl -X POST http://localhost:5000/ai/auth/login \
@@ -64,6 +68,7 @@ curl -X POST http://localhost:5000/ai/detect \
   - 系统配置管理
 
 使用示例：
+
 ```bash
 # 创建新模型
 curl -X POST http://localhost:5000/manage/models \
@@ -85,6 +90,7 @@ curl -X DELETE http://localhost:5000/manage/models/model_id \
 1. 确保已安装Docker和Docker Compose
 2. 确保已安装NVIDIA Container Toolkit（用于GPU支持）
 3. 在项目根目录下运行：
+
 ```bash
 docker-compose up -d
 ```
@@ -92,11 +98,13 @@ docker-compose up -d
 ### 手动构建Docker镜像
 
 1. 构建镜像：
+
 ```bash
 docker build -t agricultural-ai-service .
 ```
 
 2. 运行容器：
+
 ```bash
 docker run -d \
   --name agricultural-ai-service \
@@ -128,12 +136,14 @@ docker run -d \
 ## 安装步骤
 
 1. 克隆项目
+
 ```bash
 git clone [项目地址]
 cd agricultural-ai-service
 ```
 
 2. 创建并激活虚拟环境（推荐）
+
 ```bash
 # Windows
 python -m venv venv
@@ -145,12 +155,14 @@ source venv/bin/activate
 ```
 
 3. 安装依赖
+
 ```bash
 pip install -r requirements.txt
 ```
 
 4. 配置环境变量
 创建`.env`文件并配置必要的环境变量：
+
 ```env
 FLASK_APP=app.py
 FLASK_ENV=development
@@ -161,16 +173,19 @@ FLASK_ENV=development
 系统支持三种运行模式：
 
 1. 同时运行Web服务和Worker（默认）
+
 ```bash
 python run.py
 ```
 
 2. 仅运行Web服务
+
 ```bash
 python run.py --mode web
 ```
 
 3. 仅运行Worker
+
 ```bash
 python run.py --mode worker
 ```
@@ -196,6 +211,7 @@ agricultural-ai-service/
 ## 配置说明
 
 系统会自动根据服务器资源进行优化配置：
+
 - CPU核心数：自动计算最佳线程数
 - 内存使用：根据可用内存调整连接限制
 - 请求超时：可配置的请求处理超时时间
@@ -205,6 +221,8 @@ agricultural-ai-service/
 1. 添加新的AI模型：
    - 在`modules/ai`目录下创建新的模型处理模块
    - 在`services`目录下添加相应的服务层代码
+   - 支持PyTorch模型转换为ONNX格式
+   - 支持ONNX模型的部署和推理
 
 2. 添加新的API端点：
    - 在`modules`目录下创建新的蓝图
@@ -216,6 +234,8 @@ agricultural-ai-service/
 - 首次运行前检查配置文件
 - 建议在生产环境中使用`waitress`作为WSGI服务器
 - 注意定期清理`uploads`和`logs`目录
+- 使用ONNX模型时确保已安装相应的运行时环境
+- 对于GPU加速，确保安装了`onnxruntime-gpu`
 
 ## 许可证
 
@@ -223,4 +243,4 @@ agricultural-ai-service/
 
 ## 联系方式
 
-[添加联系方式] 
+[添加联系方式]
