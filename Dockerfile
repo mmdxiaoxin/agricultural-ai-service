@@ -7,7 +7,10 @@ WORKDIR /app
 # 设置环境变量
 ENV PYTHONUNBUFFERED=1 \
   DEBIAN_FRONTEND=noninteractive \
-  TZ=Asia/Shanghai
+  TZ=Asia/Shanghai \
+  CUDA_HOME=/usr/local/cuda \
+  PATH=/usr/local/cuda/bin:${PATH} \
+  LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
 
 # 安装系统依赖
 RUN apt-get update && apt-get install -y \
@@ -16,7 +19,8 @@ RUN apt-get update && apt-get install -y \
   python3.10-venv \
   libgl1-mesa-glx \
   libglib2.0-0 \
-  && rm -rf /var/lib/apt/lists/*
+  curl &&
+  rm -rf /var/lib/apt/lists/*
 
 # 复制项目文件
 COPY requirements.txt .
@@ -28,6 +32,11 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 # 安装Python依赖
 RUN pip install --no-cache-dir -r requirements.txt
+
+# 验证CUDA和ONNX安装
+RUN python3 -c "import torch; print('CUDA available:', torch.cuda.is_available())" &&
+  python3 -c "import onnxruntime; print('ONNX Runtime version:', onnxruntime.__version__)" &&
+  python3 -c "import onnxruntime; print('ONNX Runtime GPU available:', 'GPU' in onnxruntime.get_available_providers())"
 
 # 复制项目文件
 COPY . .
@@ -46,4 +55,4 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:5000/health || exit 1
 
 # 启动命令
-CMD ["python", "run.py"] 
+CMD ["python", "run.py"]
