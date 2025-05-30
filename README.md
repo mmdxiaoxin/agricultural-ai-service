@@ -225,12 +225,14 @@ python run.py --mode worker
 
 #### 生产环境
 ```bash
-# 使用waitress作为WSGI服务器
+# Windows环境（使用waitress作为WSGI服务器）
 waitress-serve --host=0.0.0.0 --port=5000 app:app
 
-# 使用gunicorn作为WSGI服务器（Linux）
+# Linux环境（使用gunicorn作为WSGI服务器）
 gunicorn -w 4 -b 0.0.0.0:5000 app:app
 ```
+
+> 💡 **注意**：本项目默认使用waitress作为Windows环境下的WSGI服务器，这是因为它对Windows有更好的支持。如果您在Linux环境下部署，建议使用gunicorn作为WSGI服务器。
 
 ### 4. 验证部署
 
