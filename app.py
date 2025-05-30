@@ -7,6 +7,7 @@ from werkzeug.exceptions import RequestTimeout
 from config import AppConfig
 from modules.ai import ai_bp
 from modules.manage import manage_bp
+from modules.health import health_bp
 from common.utils.response import ApiResponse
 from common.utils.redis_utils import RedisClient
 from common.utils.error_handler import error_handler
@@ -32,7 +33,6 @@ cors = CORS(
 
 # 配置API基础URL
 app.config["API_BASE_URL"] = "http://localhost:5000/ai"
-
 
 # 请求超时装饰器
 def timeout_handler(timeout=AppConfig.REQUEST_TIMEOUT):
@@ -71,6 +71,8 @@ def log_response_info(response):
 app.register_blueprint(ai_bp, url_prefix="/ai")
 # 注册管理模块
 app.register_blueprint(manage_bp, url_prefix="/manage")
+# 注册健康检查模块
+app.register_blueprint(health_bp, url_prefix="/")
 
 # 注册错误处理器
 error_handler.register_handlers(app)
