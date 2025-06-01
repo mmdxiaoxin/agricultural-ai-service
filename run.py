@@ -43,7 +43,6 @@ def parse_args():
 def run_web_server(server_config):
     """运行Web服务器"""
     from app import app
-    from waitress import serve
 
     # 初始化配置
     AppConfig.init_app(app)
@@ -53,19 +52,53 @@ def run_web_server(server_config):
         f"Server configuration: threads={server_config['threads']}, connection_limit={server_config['connection_limit']}"
     )
 
-    serve(
-        app,
-        host=AppConfig.HOST,
-        port=AppConfig.PORT,
-        threads=server_config["threads"],
-        connection_limit=server_config["connection_limit"],
-        channel_timeout=AppConfig.REQUEST_TIMEOUT,
-        url_scheme="http",
-        ident="Agricultural AI Service",
-        max_request_body_size=AppConfig.MAX_FILE_SIZE,
-        cleanup_interval=30,
-        log_socket_errors=True,
-    )
+    # 根据操作系统选择WSGI服务器
+    if os.name == "nt":  # Windows系统
+        from waitress import serve
+
+        logger.info("使用Waitress作为WSGI服务器（Windows环境）")
+        serve(
+            app,
+            host=AppConfig.HOST,
+            port=AppConfig.PORT,
+            threads=server_config["threads"],
+            connection_limit=server_config["connection_limit"],
+            channel_timeout=AppConfig.REQUEST_TIMEOUT,
+            url_scheme="http",
+            ident="Agricultural AI Service",
+            max_request_body_size=AppConfig.MAX_FILE_SIZE,
+            cleanup_interval=30,
+            log_socket_errors=True,
+        )
+    else:  # Linux/Unix系统
+        import gunicorn.app.base
+
+        class StandaloneApplication(gunicorn.app.base.BaseApplication):
+            def __init__(self, app, options=None):
+                self.options = options or {}
+                self.application = app
+                super().__init__()
+
+            def load_config(self):
+                for key, value in self.options.items():
+                    self.cfg.set(key, value)
+
+            def load(self):
+                return self.application
+
+        logger.info("使用Gunicorn作为WSGI服务器（Linux环境）")
+        options = {
+            "bind": f"{AppConfig.HOST}:{AppConfig.PORT}",
+            "workers": server_config["threads"],
+            "worker_class": "sync",
+            "worker_connections": server_config["connection_limit"],
+            "timeout": AppConfig.REQUEST_TIMEOUT,
+            "max_request_size": AppConfig.MAX_FILE_SIZE,
+            "accesslog": "-",
+            "errorlog": "-",
+            "loglevel": "info",
+        }
+        StandaloneApplication(app, options).run()
 
 
 def run_celery_worker(server_config):

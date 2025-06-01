@@ -24,3 +24,8 @@ waitress==3.0.0
 onnx==1.15.0
 onnxruntime==1.16.3
 onnxruntime-gpu==1.16.3
+psutil==5.9.8
+python-multipart==0.0.9
+Pillow==10.2.0
+requests==2.31.0
+tqdm==4.66.2
