@@ -77,7 +77,18 @@ error_handler.register_handlers(app)
 
 if __name__ == "__main__":
     try:
-        logger.info(f"Starting server on {AppConfig.HOST}:{AppConfig.PORT}")
+        # 记录启动信息
+        logger.info("=" * 50)
+        logger.info("服务启动中...")
+        logger.info(f"环境: {'开发' if AppConfig.DEBUG else '生产'}")
+        logger.info(f"主机: {AppConfig.HOST}")
+        logger.info(f"端口: {AppConfig.PORT}")
+        logger.info(f"日志级别: {AppConfig.LOG_LEVEL}")
+        logger.info(f"请求超时: {AppConfig.REQUEST_TIMEOUT}秒")
+        logger.info(f"最大文件大小: {AppConfig.MAX_FILE_SIZE}字节")
+        logger.info(f"CORS配置: {AppConfig.CORS_ORIGINS}")
+        logger.info("=" * 50)
+
         app.run(
             debug=AppConfig.DEBUG,
             host=AppConfig.HOST,
@@ -86,6 +97,6 @@ if __name__ == "__main__":
             use_reloader=AppConfig.DEBUG,
         )
     except Exception as e:
-        logger.error(f"Server error: {str(e)}")
+        logger.error(f"服务启动失败: {str(e)}", exc_info=True)
     finally:
-        logger.info("Server is closed")
+        logger.info("服务已关闭")
