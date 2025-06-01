@@ -6,10 +6,19 @@ from flask import current_app
 from common.utils.response import ApiResponse
 from common.utils.redis_utils import RedisClient
 from common.utils.logger import log_manager
+from common.database.utils import DatabaseUtils
+from celery_app import create_celery_app
 from . import health_bp
 
 # 获取日志记录器
 logger = log_manager.get_logger(__name__)
+
+# 资源使用阈值
+RESOURCE_THRESHOLDS = {
+    "cpu_percent": 80,  # CPU使用率阈值
+    "memory_percent": 80,  # 内存使用率阈值
+    "disk_percent": 80,  # 磁盘使用率阈值
+}
 
 
 def check_redis_connection():
@@ -21,6 +30,30 @@ def check_redis_connection():
     except Exception as e:
         logger.error(f"Redis连接检查失败: {str(e)}")
         return False
+
+
+def check_database_connection():
+    """检查数据库连接状态"""
+    try:
+        db_utils = DatabaseUtils()
+        db_utils.verify_model_data()
+        return True
+    except Exception as e:
+        logger.error(f"数据库连接检查失败: {str(e)}")
+        return False
+
+
+def check_celery_status():
+    """检查Celery状态"""
+    try:
+        app = current_app._get_current_object()
+        celery = create_celery_app(app)
+        inspect = celery.control.inspect()
+        stats = inspect.stats()
+        return {"available": bool(stats), "stats": stats}
+    except Exception as e:
+        logger.error(f"Celery状态检查失败: {str(e)}")
+        return {"available": False, "error": str(e)}
 
 
 def check_gpu_status():
@@ -61,6 +94,16 @@ def check_system_resources():
         cpu_percent = psutil.cpu_percent(interval=1)
         memory = psutil.virtual_memory()
         disk = psutil.disk_usage("/")
+
+        # 检查是否超过阈值
+        warnings = []
+        if cpu_percent > RESOURCE_THRESHOLDS["cpu_percent"]:
+            warnings.append(f"CPU使用率过高: {cpu_percent}%")
+        if memory.percent > RESOURCE_THRESHOLDS["memory_percent"]:
+            warnings.append(f"内存使用率过高: {memory.percent}%")
+        if disk.percent > RESOURCE_THRESHOLDS["disk_percent"]:
+            warnings.append(f"磁盘使用率过高: {disk.percent}%")
+
         return {
             "cpu_percent": cpu_percent,
             "memory": {
@@ -68,7 +111,12 @@ def check_system_resources():
                 "available": memory.available,
                 "percent": memory.percent,
             },
-            "disk": {"total": disk.total, "free": disk.free, "percent": disk.percent},
+            "disk": {
+                "total": disk.total,
+                "free": disk.free,
+                "percent": disk.percent,
+            },
+            "warnings": warnings,
         }
     except Exception as e:
         logger.error(f"系统资源检查失败: {str(e)}")
@@ -81,16 +129,36 @@ def health_check():
     try:
         # 检查各个组件状态
         redis_status = check_redis_connection()
+        db_status = check_database_connection()
+        celery_status = check_celery_status()
         gpu_status = check_gpu_status()
         onnx_status = check_onnx_runtime()
         system_status = check_system_resources()
 
+        # 综合状态判断
+        is_healthy = all(
+            [
+                redis_status,
+                db_status,
+                celery_status.get("available", False),
+                gpu_status.get("available", False),
+                onnx_status.get("gpu_available", False),
+            ]
+        )
+
+        # 检查系统资源警告
+        system_warnings = system_status.get("warnings", [])
+        if system_warnings:
+            logger.warning(f"系统资源警告: {system_warnings}")
+
         # 综合状态
         status = {
-            "status": "healthy" if redis_status else "unhealthy",
+            "status": "healthy" if is_healthy else "unhealthy",
             "timestamp": time.time(),
             "components": {
                 "redis": redis_status,
+                "database": db_status,
+                "celery": celery_status,
                 "gpu": gpu_status,
                 "onnx": onnx_status,
                 "system": system_status,
