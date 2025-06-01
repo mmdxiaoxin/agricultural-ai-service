@@ -165,10 +165,26 @@ LOG_LEVEL=INFO
 LOG_FILE=logs/app.log
 ```
 
-5. 创建必要的目录
+5. 创建必要的目录（重要！）
 ```bash
-mkdir -p data weight uploads logs
+# 创建数据目录
+mkdir -p data/matplotlib  # 用于存储matplotlib配置
+mkdir -p data/yolo       # 用于存储YOLO配置
+
+# 创建模型权重目录
+mkdir -p weight
+
+# 创建上传文件目录
+mkdir -p uploads/chunks  # 用于存储分片上传的临时文件
+
+# 创建日志目录
+mkdir -p logs
+
+# 设置目录权限（Linux环境）
+chmod -R 755 data weight uploads logs
 ```
+
+> ⚠️ **重要提示**：在启动服务之前，必须确保以上所有目录都已创建，否则服务可能无法正常运行。特别是在Docker环境中，虽然docker-compose会自动创建挂载的目录，但建议在启动前手动检查这些目录是否存在。
 
 #### 方法二：Docker部署
 
@@ -185,6 +201,9 @@ sudo chmod +x /usr/local/bin/docker-compose
 
 2. 构建和运行容器
 ```bash
+# 创建必要的目录
+mkdir -p data/matplotlib data/yolo weight uploads/chunks logs
+
 # 构建镜像
 docker build -t agricultural-ai-service .
 
@@ -202,6 +221,9 @@ docker run -d \
 
 3. 使用Docker Compose（推荐）
 ```bash
+# 创建必要的目录
+mkdir -p data/matplotlib data/yolo weight uploads/chunks logs
+
 # 启动所有服务
 docker-compose up -d
 
@@ -211,6 +233,8 @@ docker-compose ps
 # 查看服务日志
 docker-compose logs -f
 ```
+
+> ⚠️ **注意**：虽然Docker会自动创建挂载的目录，但建议在启动前手动创建这些目录，以确保目录结构和权限正确。特别是`data/matplotlib`和`data/yolo`这样的子目录，需要手动创建。
 
 ### 3. 启动服务
 
@@ -328,117 +352,3 @@ python -m pytest tests/
 ```bash
 python -m pytest tests/api/
 ```
-
-3. 性能测试
-```bash
-python -m pytest tests/performance/
-```
-
-## ❓ 常见问题
-
-### 1. 环境问题
-- Q: 如何解决CUDA相关错误？
-  A: 确保已正确安装CUDA和cuDNN，并设置正确的环境变量
-
-- Q: Redis连接失败怎么办？
-  A: 检查Redis服务是否启动，以及连接配置是否正确
-
-### 2. 部署问题
-- Q: 如何修改服务端口？
-  A: 在`.env`文件中修改PORT配置，或使用环境变量覆盖
-
-- Q: 如何配置HTTPS？
-  A: 使用Nginx反向代理，并配置SSL证书
-
-- Q: 如何配置允许访问的IP地址？
-  A: 在`.env`文件中修改ALLOWED_IPS配置，添加允许访问的IP地址，多个IP用逗号分隔。在Docker环境中，需要添加Docker网关IP（通常是172.17.0.1）
-
-### 3. 性能问题
-- Q: 如何提高推理速度？
-  A: 使用GPU加速，启用批处理，优化模型结构
-
-- Q: 如何处理内存泄漏？
-  A: 定期检查内存使用情况，及时释放不需要的资源
-
-## 🔧 维护说明
-
-### 1. 日常维护
-- 📝 定期检查日志文件
-- 📊 监控系统资源使用情况
-- 💾 备份重要数据
-- 🔄 更新依赖包
-
-### 2. 故障处理
-- 🔍 检查服务状态
-- 📋 查看错误日志
-- 🔄 重启相关服务
-- 💾 恢复数据备份
-
-### 3. 性能优化
-- 🚀 优化数据库查询
-- ⚡ 使用缓存加速
-- ⚙️ 调整服务器参数
-- 🧠 优化模型结构
-
-## 📄 许可证
-
-本项目采用 GNU Affero General Public License v3.0 许可证。
-
-### 许可证说明
-
-- 📜 本项目是自由软件，您可以自由地分发和修改它
-- 🔄 您可以自由地使用、修改和分发本软件
-- 📢 如果您修改了本软件，您必须将修改后的源代码公开
-- 🌐 如果您通过网络提供服务，您必须向用户提供源代码
-- ⚠️ 本软件不提供任何明示或暗示的保证
-
-### 许可证要求
-
-1. 源代码公开
-   - 📢 如果您修改了代码，必须公开修改后的源代码
-   - 🌐 如果通过网络提供服务，必须向用户提供源代码
-
-2. 版权声明
-   - ©️ 必须保留原始版权声明
-   - 📜 必须包含许可证文本
-
-3. 专利授权
-   - 📝 贡献者授予您使用其专利的权利
-   - ⛔ 您不得对下游用户施加额外的专利限制
-
-4. 免责声明
-   - ⚠️ 本软件按"原样"提供，不提供任何保证
-   - 🚫 作者不对任何损失负责
-
-### 如何遵守许可证
-
-1. 使用本软件时：
-   - ©️ 保留所有版权声明
-   - 📜 包含完整的许可证文本
-   - 📝 说明您对代码的修改
-
-2. 分发本软件时：
-   - 📦 提供源代码
-   - 📢 说明许可证要求
-   - 📝 提供修改说明（如果有）
-
-3. 修改本软件时：
-   - ✏️ 明确标注您的修改
-   - 📜 使用相同的许可证
-   - 📝 提供修改说明
-
-完整的许可证文本请查看 [LICENSE](LICENSE) 文件。
-
-## 📞 联系方式
-
-- 👤 项目维护者：mmdxiaoxin
-- 📧 电子邮件：782446723@qq.com
-- 🌐 项目地址：https://github.com/mmdxiaoxin/agricultural-ai-service.git
-
----
-
-<div align="center">
-
-**感谢您使用农业AI服务系统！** 🌱
-
-</div>
