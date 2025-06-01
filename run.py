@@ -97,7 +97,15 @@ def run_web_server(server_config):
             "accesslog": "-",
             "errorlog": "-",
             "loglevel": "info",
+            "reload": AppConfig.DEBUG,
+            "reload_extra_files": ["config/"],
+            "preload_app": True,
+            "keepalive": 5,
+            "graceful_timeout": 30,
+            "forwarded_allow_ips": "*",
         }
+
+        # 直接运行Gunicorn
         StandaloneApplication(app, options).run()
 
 
@@ -148,10 +156,10 @@ def main():
     if args.mode == "all":
         # 创建进程
         web_process = multiprocessing.Process(
-            target=run_web_server, args=(server_config,)
+            target=run_web_server, args=(server_config,), daemon=True
         )
         celery_process = multiprocessing.Process(
-            target=run_celery_worker, args=(server_config,)
+            target=run_celery_worker, args=(server_config,), daemon=True
         )
 
         try:
