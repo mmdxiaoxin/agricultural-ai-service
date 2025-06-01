@@ -91,18 +91,13 @@ def run_web_server(server_config):
             "bind": f"{AppConfig.HOST}:{AppConfig.PORT}",
             "workers": server_config["threads"],
             "worker_class": "sync",
-            "worker_connections": server_config["connection_limit"],
             "timeout": AppConfig.REQUEST_TIMEOUT,
             "max_request_size": AppConfig.MAX_FILE_SIZE,
             "accesslog": "-",
             "errorlog": "-",
             "loglevel": "info",
-            "reload": AppConfig.DEBUG,
-            "reload_extra_files": ["config/"],
-            "preload_app": True,
-            "keepalive": 5,
-            "graceful_timeout": 30,
-            "forwarded_allow_ips": "*",
+            "keepalive": 30,
+            "worker_connections": server_config["connection_limit"],
         }
 
         # 直接运行Gunicorn
