@@ -352,3 +352,21 @@ python -m pytest tests/
 ```bash
 python -m pytest tests/api/
 ```
+
+## 🤔 常见问题
+
+### 1. 环境问题
+- Q: 如何解决CUDA相关错误？
+  A: 确保已正确安装CUDA和cuDNN，并设置正确的环境变量
+
+- Q: Redis连接失败怎么办？
+  A: 检查Redis服务是否启动，以及连接配置是否正确
+
+- Q: 为什么会出现"Cannot re-initialize CUDA in forked subprocess"错误？
+  A: 这是因为在Linux系统中，Python多进程默认使用fork方式启动，而CUDA不支持fork方式。系统已经配置为使用spawn方式启动多进程，如果仍然遇到此错误，请确保：
+  1. 使用最新版本的代码
+  2. 在启动服务前清理所有Python进程
+  3. 确保没有其他程序占用GPU资源
+
+### 2. 部署问题
+// ... existing code ...

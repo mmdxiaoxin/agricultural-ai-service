@@ -100,6 +100,9 @@ def run_celery_worker(server_config):
 
 def main():
     """主函数"""
+    # 设置多进程启动方法为spawn
+    multiprocessing.set_start_method("spawn", force=True)
+
     # 解析命令行参数
     args = parse_args()
 
