@@ -76,6 +76,9 @@ class Config:
     REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
     REDIS_CACHE_TTL = int(os.getenv("REDIS_CACHE_TTL", "3600"))  # 缓存过期时间（秒）
 
+    # IP访问限制配置
+    ALLOWED_IPS = os.getenv("ALLOWED_IPS", "127.0.0.1,localhost,::1").split(",")
+
     # 模型版本缓存键
     MODEL_VERSIONS_CACHE_KEY = "ai:model:versions"
 
