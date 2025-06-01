@@ -93,7 +93,7 @@ def run_web_server(server_config):
             "worker_class": "sync",
             "worker_connections": server_config["connection_limit"],
             "timeout": AppConfig.REQUEST_TIMEOUT,
-            "max_request_size": AppConfig.MAX_FILE_SIZE,
+            "max_request_line": AppConfig.MAX_FILE_SIZE,
             "accesslog": "-",
             "errorlog": "-",
             "loglevel": "info",
