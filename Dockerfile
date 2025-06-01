@@ -43,6 +43,11 @@ COPY requirements.txt environment.yml ./
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
+# 升级pip并配置镜像源
+RUN pip install --no-cache-dir -U pip && \
+    pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ && \
+    pip config set global.trusted-host mirrors.aliyun.com
+
 # 安装Python依赖
 RUN pip install --no-cache-dir -r requirements.txt && \
     pip install --no-cache-dir ipython
