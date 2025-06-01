@@ -32,6 +32,7 @@ class Config:
     task_track_started = True
     task_time_limit = 300  # 5分钟超时
     task_soft_time_limit = 240  # 4分钟软超时
+    max_request_size = 10485760  # 10MB
 
     # 工作进程配置
     worker_prefetch_multiplier = 4  # 每个工作进程一次可以处理4个任务
