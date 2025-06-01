@@ -143,6 +143,9 @@ HOST=0.0.0.0
 PORT=5000
 WORKERS=4
 
+# IP访问限制配置
+ALLOWED_IPS=127.0.0.1,localhost,::1,172.17.0.1  # 允许访问的IP地址列表，用逗号分隔
+
 # Redis配置
 REDIS_HOST=localhost
 REDIS_PORT=6379
@@ -346,6 +349,9 @@ python -m pytest tests/performance/
 
 - Q: 如何配置HTTPS？
   A: 使用Nginx反向代理，并配置SSL证书
+
+- Q: 如何配置允许访问的IP地址？
+  A: 在`.env`文件中修改ALLOWED_IPS配置，添加允许访问的IP地址，多个IP用逗号分隔。在Docker环境中，需要添加Docker网关IP（通常是172.17.0.1）
 
 ### 3. 性能问题
 - Q: 如何提高推理速度？
