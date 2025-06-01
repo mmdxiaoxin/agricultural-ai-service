@@ -26,7 +26,7 @@ dependencies:
       - redis==5.0.1
       - sqlalchemy==2.0.23
       - streamlit==1.29.0
-      - ultralytics==8.0.196
+      - ultralytics==8.3.146
       - python-dotenv==1.0.0
       - gunicorn==21.2.0
       - waitress==3.0.0
