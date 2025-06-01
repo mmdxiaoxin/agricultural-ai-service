@@ -31,8 +31,6 @@ cors = CORS(
     },
 )
 
-# 配置API基础URL
-app.config["API_BASE_URL"] = "http://localhost:5000/ai"
 
 # 请求超时装饰器
 def timeout_handler(timeout=AppConfig.REQUEST_TIMEOUT):
