@@ -34,10 +34,6 @@ RUN apt-get update && apt-get install -y \
     htop \
     net-tools \
     procps \
-    libcublas11 \
-    libcublas-dev \
-    libcublasLt11 \
-    libcublasLt-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # 复制项目文件
