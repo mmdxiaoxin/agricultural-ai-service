@@ -25,7 +25,14 @@ def get_server_config():
     # 假设每个连接占用约1MB内存
     connection_limit = min(int(available_memory_gb * 1024), 2000)
 
-    return {"threads": threads, "connection_limit": connection_limit}
+    # 检查是否在Docker环境中运行
+    is_docker = os.path.exists("/.dockerenv")
+
+    return {
+        "threads": threads,
+        "connection_limit": connection_limit,
+        "is_docker": is_docker,
+    }
 
 
 def parse_args():
@@ -47,7 +54,14 @@ def run_web_server(server_config):
     # 初始化配置
     AppConfig.init_app(app)
 
-    logger.info(f"Starting server on {AppConfig.HOST}:{AppConfig.PORT}")
+    # 确保使用IPv4
+    host = AppConfig.HOST
+    if host == "0.0.0.0" and server_config["is_docker"]:
+        host = "0.0.0.0"  # Docker环境使用0.0.0.0
+    elif host == "0.0.0.0":
+        host = "127.0.0.1"  # 非Docker环境使用localhost
+
+    logger.info(f"Starting server on {host}:{AppConfig.PORT}")
     logger.info(
         f"Server configuration: threads={server_config['threads']}, connection_limit={server_config['connection_limit']}"
     )
@@ -59,7 +73,7 @@ def run_web_server(server_config):
         logger.info("使用Waitress作为WSGI服务器（Windows环境）")
         serve(
             app,
-            host=AppConfig.HOST,
+            host=host,
             port=AppConfig.PORT,
             threads=server_config["threads"],
             connection_limit=server_config["connection_limit"],
@@ -88,7 +102,7 @@ def run_web_server(server_config):
 
         logger.info("使用Gunicorn作为WSGI服务器（Linux环境）")
         options = {
-            "bind": f"{AppConfig.HOST}:{AppConfig.PORT}",
+            "bind": f"{host}:{AppConfig.PORT}",
             "workers": server_config["threads"],
             "worker_class": "sync",
             "timeout": AppConfig.REQUEST_TIMEOUT,
@@ -98,6 +112,7 @@ def run_web_server(server_config):
             "loglevel": "info",
             "keepalive": 30,
             "worker_connections": server_config["connection_limit"],
+            "ipv6": False,  # 禁用IPv6
         }
 
         # 直接运行Gunicorn
