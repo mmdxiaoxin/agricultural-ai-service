@@ -21,7 +21,6 @@ ultralytics==8.3.83
 python-dotenv==1.0.1
 gunicorn==23.0.0
 waitress==3.0.2
-onnxruntime==1.22.0
 onnxruntime-gpu==1.22.0
 psutil==6.1.0
 python-multipart==0.0.9
