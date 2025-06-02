@@ -111,7 +111,9 @@ def run_web_server(server_config):
             "loglevel": "info",
             "keepalive": 30,
             "worker_connections": server_config["connection_limit"],
-            "ipv6": False,  # 禁用IPv6
+            "forwarded_allow_ips": "*",  # 允许所有代理IP
+            "proxy_protocol": False,  # 禁用代理协议
+            "proxy_allow_ips": "*",  # 允许所有代理IP
         }
 
         # 直接运行Gunicorn
