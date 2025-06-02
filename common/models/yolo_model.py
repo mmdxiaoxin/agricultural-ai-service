@@ -4,9 +4,7 @@ from ultralytics import YOLO
 from pathlib import Path
 import numpy as np
 import cv2
-from PIL import Image
-import io
-import torchvision.transforms as transforms
+import torch.multiprocessing as mp
 import onnxruntime as ort
 
 from common.utils.exceptions import ModelError

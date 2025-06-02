@@ -6,7 +6,6 @@ from pathlib import Path
 import io
 from PIL import Image
 import onnxruntime as ort
-import numpy as np
 
 from config.resnet_config import ResNetConfig
 from common.utils.exceptions import ModelError
