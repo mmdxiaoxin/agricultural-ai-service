@@ -6,7 +6,6 @@ if os.name != "nt":  # 如果不是Windows系统（即Linux/Unix系统）
     import torch.multiprocessing as torch_mp
 
     torch_mp.set_start_method("spawn", force=True)
-else:
     multiprocessing.set_start_method("spawn", force=True)
 
 import argparse
