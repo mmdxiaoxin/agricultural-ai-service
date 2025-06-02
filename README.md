@@ -142,6 +142,7 @@ FLASK_DEBUG=1
 HOST=0.0.0.0
 PORT=5000
 WORKERS=4
+SERVER_THREADS=8  # 服务器线程数，不设置则自动计算（CPU核心数 * 2，最大32）
 
 # IP访问限制配置
 ALLOWED_IPS=127.0.0.1,localhost,::1,172.17.0.1  # 允许访问的IP地址列表，用逗号分隔
