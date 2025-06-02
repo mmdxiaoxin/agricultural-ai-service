@@ -1,6 +1,10 @@
 import os
-import argparse
 import multiprocessing
+
+# 设置多进程启动方法为spawn
+multiprocessing.set_start_method("spawn", force=True)
+
+import argparse
 import psutil
 from config import AppConfig
 from config.env_config import EnvConfig
@@ -136,7 +140,7 @@ def run_celery_worker(server_config):
     concurrency = min(server_config["threads"], 8)  # 最大8个worker
 
     # 根据操作系统选择进程池
-    pool = "prefork" if os.name != "nt" else "solo"
+    pool = "solo" if os.name == "nt" else "prefork"
 
     argv = [
         "worker",
@@ -154,9 +158,6 @@ def run_celery_worker(server_config):
 
 def main():
     """主函数"""
-    # 设置多进程启动方法为spawn
-    multiprocessing.set_start_method("spawn", force=True)
-
     # 解析命令行参数
     args = parse_args()
 

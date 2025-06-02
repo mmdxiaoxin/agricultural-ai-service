@@ -1,4 +1,5 @@
 from config.app_config import Config as AppConfig
+import os
 
 
 class Config:
@@ -38,6 +39,11 @@ class Config:
     worker_prefetch_multiplier = 4  # 每个工作进程一次可以处理4个任务
     worker_max_tasks_per_child = 1000  # 处理1000个任务后重启工作进程，防止内存泄漏
     worker_max_memory_per_child = 1024000  # 1GB内存限制
+
+    # 进程池配置 - 根据操作系统选择
+    worker_pool = (
+        "solo" if os.name == "nt" else "prefork"
+    )  # Windows使用solo，Linux使用prefork
 
     # 任务路由
     task_routes = {
