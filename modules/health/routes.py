@@ -77,6 +77,9 @@ def _check_gpu():
 def check_gpu_status():
     """检查GPU状态"""
     try:
+        # 检查是否在Docker环境中运行
+        is_docker = os.path.exists("/.dockerenv")
+
         if os.name == "nt":  # Windows系统直接检查
             gpu_available = torch.cuda.is_available()
             if gpu_available:
@@ -86,16 +89,34 @@ def check_gpu_status():
                     gpu_memory.append(torch.cuda.get_device_properties(i).total_memory)
                 return {"available": True, "count": gpu_count, "memory": gpu_memory}
             return {"available": False}
-        else:  # Linux系统使用独立进程
-            # 设置多进程启动方法
-            import torch.multiprocessing as torch_mp
+        else:  # Linux系统
+            if is_docker:
+                # Docker环境中使用环境变量检查GPU
+                nvidia_smi = (
+                    os.popen(
+                        "nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits"
+                    )
+                    .read()
+                    .strip()
+                )
+                if nvidia_smi:
+                    gpu_memory = [int(x) for x in nvidia_smi.split("\n")]
+                    return {
+                        "available": True,
+                        "count": len(gpu_memory),
+                        "memory": gpu_memory,
+                    }
+                return {"available": False}
+            else:
+                # 非Docker环境使用独立进程
+                import torch.multiprocessing as torch_mp
 
-            torch_mp.set_start_method("spawn", force=True)
-            multiprocessing.set_start_method("spawn", force=True)
+                torch_mp.set_start_method("spawn", force=True)
+                multiprocessing.set_start_method("spawn", force=True)
 
-            with multiprocessing.Pool(1) as pool:
-                result = pool.apply(_check_gpu)
-            return result
+                with multiprocessing.Pool(1) as pool:
+                    result = pool.apply(_check_gpu)
+                return result
     except Exception as e:
         logger.error(f"GPU状态检查失败: {str(e)}")
         return {"available": False, "error": str(e)}
