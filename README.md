@@ -385,7 +385,7 @@ REDIS_DB=0
 REDIS_PASSWORD=
 
 # JWT配置
-JWT_SECRET_KEY=your-secret-key
+JWT_SECRET_KEY=your-secret-key # 注意要与平台服务端的JWT秘钥相同，否则无法通过签名
 JWT_ACCESS_TOKEN_EXPIRES=3600
 
 # 文件上传配置
