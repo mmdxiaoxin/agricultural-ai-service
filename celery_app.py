@@ -1,5 +1,6 @@
 from celery import Celery
 from config import AppConfig, CeleryConfig
+import os
 
 
 def create_celery_app(app=None):
