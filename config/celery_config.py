@@ -42,8 +42,8 @@ class Config:
 
     # 进程池配置 - 根据操作系统选择
     worker_pool = (
-        "solo" if os.name == "nt" else "prefork"
-    )  # Windows使用solo，Linux使用prefork
+        "solo" if os.name == "nt" else "processes"
+    )  # Windows使用solo，Linux使用processes
 
     # 任务路由
     task_routes = {

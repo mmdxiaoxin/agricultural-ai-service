@@ -140,7 +140,9 @@ def run_celery_worker(server_config):
     concurrency = min(server_config["threads"], 8)  # 最大8个worker
 
     # 根据操作系统选择进程池
-    pool = "solo" if os.name == "nt" else "prefork"
+    pool = (
+        "solo" if os.name == "nt" else "processes"
+    )  # Windows使用solo，Linux使用processes
 
     argv = [
         "worker",
