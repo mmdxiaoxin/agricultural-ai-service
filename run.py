@@ -3,6 +3,7 @@ import argparse
 import multiprocessing
 import psutil
 from config import AppConfig
+from config.env_config import EnvConfig
 from common.init import initializer
 from common.utils.logger import log_manager
 
@@ -18,8 +19,9 @@ def get_server_config():
     memory = psutil.virtual_memory()
     available_memory_gb = memory.available / (1024**3)
 
-    # 根据CPU核心数计算线程数
-    threads = min(cpu_count * 2, 32)  # 每个核心2个线程，最大32个线程
+    # 获取线程数配置
+    threads = EnvConfig.get_server_threads(cpu_count)
+    logger.info(f"服务器线程数: {threads} (CPU核心数: {cpu_count})")
 
     # 根据内存计算连接限制
     # 假设每个连接占用约1MB内存
