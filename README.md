@@ -307,7 +307,7 @@ docker build -t agricultural-ai-service .
 docker run -d \
     --name agricultural-ai-service \
     --gpus all \
-    -p 5001:5000 \
+    -p 5000:5000 \
     -v $(pwd)/data:/app/data \
     -v $(pwd)/weight:/app/weight \
     -v $(pwd)/uploads:/app/uploads \
