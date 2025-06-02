@@ -6,7 +6,7 @@ services:
     container_name: agricultural-ai-service
     restart: unless-stopped
     ports:
-      - "5001:5000"
+      - "5000:5000"
     volumes:
       - ./data:/app/data
       - ./weight:/app/weight
