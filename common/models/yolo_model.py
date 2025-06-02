@@ -161,6 +161,8 @@ class BaseYOLOModel:
             cuda_available = torch.cuda.is_available()
             if cuda_available:
                 logger.info(f"CUDA可用，使用GPU: {torch.cuda.get_device_name(0)}")
+                logger.info(f"CUDA版本: {torch.version.cuda}")
+                logger.info(f"当前设备: {self.params['device']}")
             else:
                 logger.info("CUDA不可用，将使用CPU进行推理")
                 # 更新设备参数为CPU
@@ -170,7 +172,21 @@ class BaseYOLOModel:
 
             try:
                 # 尝试使用指定设备加载模型
+                logger.info(f"尝试加载YOLO模型，参数: {self.params}")
                 self.model = YOLO(str(self.model_path))
+
+                # 强制设置设备
+                if cuda_available and self.params["device"] != "cpu":
+                    try:
+                        self.model.to(self.params["device"])
+                        logger.info(f"模型已移动到设备: {self.params['device']}")
+                    except Exception as e:
+                        logger.warning(f"移动模型到GPU失败: {str(e)}")
+                        self.params["device"] = "cpu"
+                        self.params["half"] = False
+                        self.model.to("cpu")
+                        logger.info("模型已切换到CPU设备")
+
                 logger.info(f"模型设备: {self.model.device}")
                 logger.info(f"模型任务类型: {self.model.task}")
             except Exception as e:
