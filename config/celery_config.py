@@ -42,8 +42,10 @@ class Config:
 
     # 进程池配置 - 根据操作系统选择
     worker_pool = (
-        "solo" if os.name == "nt" else "processes"
-    )  # Windows使用solo，Linux使用processes
+        "solo" if os.name == "nt" else "prefork"
+    )  # Windows使用solo，Linux使用prefork
+    worker_pool_restarts = True  # 允许工作进程重启
+    worker_pool_restart_interval = 30  # 每30秒检查一次是否需要重启
 
     # 任务路由
     task_routes = {

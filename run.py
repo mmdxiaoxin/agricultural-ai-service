@@ -140,8 +140,14 @@ def run_celery_worker(server_config):
     concurrency = min(server_config["threads"], 8)  # 最大8个worker
     celery.conf.worker_concurrency = concurrency
 
-    # 直接启动worker
-    celery.worker_main()
+    # 启动worker
+    argv = [
+        "worker",
+        f"--loglevel={AppConfig.LOG_LEVEL}",
+        f"--concurrency={concurrency}",
+        "--hostname=worker@%h",
+    ]
+    celery.worker_main(argv=argv)
 
 
 def main():
