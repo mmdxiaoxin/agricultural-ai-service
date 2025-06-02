@@ -102,17 +102,34 @@ class BaseYOLOModel:
     def _load_onnx_model(self):
         """加载ONNX模型"""
         try:
-            # 创建ONNX运行时会话
-            providers = (
-                ["CUDAExecutionProvider", "CPUExecutionProvider"]
-                if torch.cuda.is_available()
-                else ["CPUExecutionProvider"]
-            )
-            self.session = ort.InferenceSession(
-                str(self.model_path),
-                providers=providers,
-                sess_options=self.session_options,
-            )
+            # 检查CUDA可用性并记录
+            cuda_available = torch.cuda.is_available()
+            if cuda_available:
+                logger.info(f"CUDA可用，使用GPU: {torch.cuda.get_device_name(0)}")
+                providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+            else:
+                logger.info("CUDA不可用，将使用CPU进行推理")
+                providers = ["CPUExecutionProvider"]
+
+            try:
+                # 创建ONNX运行时会话
+                self.session = ort.InferenceSession(
+                    str(self.model_path),
+                    providers=providers,
+                    sess_options=self.session_options,
+                )
+                logger.info(
+                    f"ONNX模型加载成功，使用提供程序: {self.session.get_providers()}"
+                )
+            except Exception as e:
+                logger.warning(f"使用GPU加载ONNX模型失败: {str(e)}，尝试使用CPU加载")
+                # 强制使用CPU加载
+                self.session = ort.InferenceSession(
+                    str(self.model_path),
+                    providers=["CPUExecutionProvider"],
+                    sess_options=self.session_options,
+                )
+                logger.info("ONNX模型已切换到CPU设备")
 
             # 获取输入输出信息
             self.input_name = self.session.get_inputs()[0].name
@@ -142,9 +159,36 @@ class BaseYOLOModel:
         """加载PyTorch模型"""
         try:
             logger.info("开始加载YOLO模型...")
-            self.model = YOLO(str(self.model_path))
-            logger.info(f"模型设备: {self.model.device}")
-            logger.info(f"模型任务类型: {self.model.task}")
+
+            # 检查CUDA可用性并记录
+            cuda_available = torch.cuda.is_available()
+            if cuda_available:
+                logger.info(f"CUDA可用，使用GPU: {torch.cuda.get_device_name(0)}")
+            else:
+                logger.info("CUDA不可用，将使用CPU进行推理")
+                # 更新设备参数为CPU
+                self.params["device"] = "cpu"
+                # 在CPU模式下禁用半精度
+                self.params["half"] = False
+
+            try:
+                # 尝试使用指定设备加载模型
+                self.model = YOLO(str(self.model_path))
+                logger.info(f"模型设备: {self.model.device}")
+                logger.info(f"模型任务类型: {self.model.task}")
+            except Exception as e:
+                logger.warning(f"使用指定设备加载模型失败: {str(e)}，尝试使用CPU加载")
+                # 强制使用CPU加载
+                self.params["device"] = "cpu"
+                self.params["half"] = False
+                self.model = YOLO(str(self.model_path))
+                logger.info("模型已切换到CPU设备")
+
+            # 验证模型是否成功加载到指定设备
+            if self.params["device"] != "cpu" and self.model.device.type == "cpu":
+                logger.warning("模型未能加载到GPU，已自动切换到CPU")
+                self.params["device"] = "cpu"
+                self.params["half"] = False
 
         except Exception as e:
             logger.error(f"PyTorch模型加载失败: {str(e)}", exc_info=True)

@@ -114,8 +114,25 @@ class ResNetModel:
     def _load_torch_model(self, version: str):
         """加载PyTorch模型"""
         try:
-            # 加载模型权重
-            checkpoint = torch.load(str(self.model_path), map_location=self.device)
+            logger.info("开始加载PyTorch模型...")
+
+            # 检查CUDA可用性并记录
+            cuda_available = torch.cuda.is_available()
+            if cuda_available:
+                logger.info(f"CUDA可用，使用GPU: {torch.cuda.get_device_name(0)}")
+            else:
+                logger.info("CUDA不可用，将使用CPU进行推理")
+
+            # 加载模型权重，优先使用GPU，如果失败则回退到CPU
+            try:
+                checkpoint = torch.load(str(self.model_path), map_location=self.device)
+            except Exception as e:
+                logger.warning(f"使用指定设备加载模型失败: {str(e)}，尝试使用CPU加载")
+                checkpoint = torch.load(str(self.model_path), map_location="cpu")
+                # 如果原本指定的是GPU但加载失败，更新设备为CPU
+                if self.device.type != "cpu":
+                    self.device = torch.device("cpu")
+                    logger.info("已切换到CPU设备")
 
             # 获取类别数量
             num_classes = checkpoint["model_state_dict"]["fc.weight"].size(0)
@@ -129,17 +146,33 @@ class ResNetModel:
             self.model.fc = nn.Linear(self.model.fc.in_features, num_classes)
 
             # 加载模型权重
-            self.model.load_state_dict(checkpoint["model_state_dict"])
+            try:
+                self.model.load_state_dict(checkpoint["model_state_dict"])
+            except Exception as e:
+                logger.error(f"加载模型权重失败: {str(e)}")
+                raise ModelError(f"加载模型权重失败: {str(e)}")
 
             # 设置为评估模式
             self.model.eval()
 
             # 移动到指定设备
-            self.model = self.model.to(self.device)
+            try:
+                self.model = self.model.to(self.device)
+                logger.info(f"模型已移动到设备: {self.device}")
+            except Exception as e:
+                logger.warning(f"移动模型到指定设备失败: {str(e)}，尝试使用CPU")
+                self.device = torch.device("cpu")
+                self.model = self.model.to(self.device)
+                logger.info("模型已移动到CPU设备")
 
-            # 如果使用半精度
+            # 如果使用半精度且设备不是CPU
             if self.params.get("half", False) and self.device.type != "cpu":
-                self.model = self.model.half()
+                try:
+                    self.model = self.model.half()
+                    logger.info("已启用半精度推理")
+                except Exception as e:
+                    logger.warning(f"启用半精度失败: {str(e)}，将使用全精度")
+                    self.params["half"] = False
 
             # 获取类别映射
             self.classes = checkpoint.get("classes", None)
