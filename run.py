@@ -65,12 +65,7 @@ def run_web_server(server_config):
     # 初始化配置
     AppConfig.init_app(app)
 
-    # 确保使用IPv4
     host = AppConfig.HOST
-    if host == "0.0.0.0" and server_config["is_docker"]:
-        host = "0.0.0.0"  # Docker环境使用0.0.0.0
-    elif host == "0.0.0.0":
-        host = "127.0.0.1"  # 非Docker环境使用localhost
 
     logger.info(f"Starting server on {host}:{AppConfig.PORT}")
     logger.info(
