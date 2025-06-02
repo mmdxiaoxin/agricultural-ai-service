@@ -201,26 +201,41 @@ sudo chmod +x /usr/local/bin/docker-compose
 ```
 
 2. 构建和运行容器
+
+##### 2.1 构建 Web 服务容器
 ```bash
-# 创建必要的目录
-mkdir -p data/matplotlib data/yolo weight uploads/chunks logs
+# 构建 Web 服务镜像
+docker build -t agricultural-ai-service-web -f Dockerfile.app .
 
-# 构建镜像
-docker build -t agricultural-ai-service .
-
-# 运行容器
+# 运行 Web 服务容器
 docker run -d \
-  --name agricultural-ai-service \
+  --name agricultural-ai-service-web \
   --gpus all \
   -p 5000:5000 \
   -v $(pwd)/data:/app/data \
   -v $(pwd)/weight:/app/weight \
   -v $(pwd)/uploads:/app/uploads \
   -v $(pwd)/logs:/app/logs \
-  agricultural-ai-service
+  agricultural-ai-service-web
 ```
 
-3. 使用Docker Compose（推荐）
+##### 2.2 构建 Celery Worker 容器
+```bash
+# 构建 Celery Worker 镜像
+docker build -t agricultural-ai-service-worker -f Dockerfile.celery .
+
+# 运行 Celery Worker 容器
+docker run -d \
+  --name agricultural-ai-service-worker \
+  --gpus all \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/weight:/app/weight \
+  -v $(pwd)/uploads:/app/uploads \
+  -v $(pwd)/logs:/app/logs \
+  agricultural-ai-service-worker
+```
+
+##### 2.3 使用 Docker Compose（推荐）
 ```bash
 # 创建必要的目录
 mkdir -p data/matplotlib data/yolo weight uploads/chunks logs
@@ -235,7 +250,37 @@ docker-compose ps
 docker-compose logs -f
 ```
 
-> ⚠️ **注意**：虽然Docker会自动创建挂载的目录，但建议在启动前手动创建这些目录，以确保目录结构和权限正确。特别是`data/matplotlib`和`data/yolo`这样的子目录，需要手动创建。
+> ⚠️ **注意**：
+> 1. 虽然Docker会自动创建挂载的目录，但建议在启动前手动创建这些目录，以确保目录结构和权限正确。
+> 2. 特别是`data/matplotlib`和`data/yolo`这样的子目录，需要手动创建。
+> 3. Web服务和Celery Worker需要共享相同的卷挂载，以确保数据一致性。
+> 4. 确保Redis服务已经启动并可访问，因为Celery Worker依赖Redis进行任务队列管理。
+
+### 容器说明
+
+#### Web 服务容器 (Dockerfile.app)
+- 基于 NVIDIA CUDA 12.4.0 运行时环境
+- 运行 Flask Web 服务
+- 暴露 5000 端口
+- 包含健康检查端点
+- 支持 GPU 加速
+- 使用 Gunicorn 作为 WSGI 服务器（Linux环境）
+- 使用 Waitress 作为 WSGI 服务器（Windows环境）
+
+#### Celery Worker 容器 (Dockerfile.celery)
+- 基于 NVIDIA CUDA 12.4.0 运行时环境
+- 运行 Celery Worker 进程
+- 支持 GPU 加速
+- 包含 Celery 健康检查
+- 自动重连 Redis
+- 支持任务重试和错误处理
+- 内存使用限制和自动回收
+
+### 容器间通信
+- Web 服务和 Celery Worker 通过 Redis 进行任务队列通信
+- 共享相同的卷挂载，确保数据一致性
+- 使用相同的环境变量配置
+- 支持容器间的服务发现
 
 ### 3. 启动服务
 
