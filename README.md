@@ -313,21 +313,110 @@ agricultural-ai-service/
 
 ## ⚙️ 配置说明
 
-### 服务器配置
-- 🖥️ CPU核心数：自动计算最佳线程数
-- 💾 内存使用：根据可用内存调整连接限制
-- ⏱️ 请求超时：可配置的请求处理超时时间
-- 📤 文件上传：支持大文件上传和断点续传
+### 配置文件结构
+```
+config/
+├── __init__.py        # 配置包初始化文件
+├── app_config.py      # 应用主配置
+├── celery_config.py   # Celery任务队列配置
+├── resnet_config.py   # ResNet模型配置
+└── yolo_config.py     # YOLO模型配置
+```
 
-### 模型配置
-- 📦 模型加载：支持动态加载和热更新
-- ⚡ 推理加速：支持GPU加速和批处理
-- 🧹 内存管理：自动内存回收和优化
+### 配置模块说明
 
-### 日志配置
-- 📊 日志级别：可配置的日志级别
-- 🔄 日志轮转：自动日志轮转和清理
-- 🔍 错误追踪：详细的错误堆栈信息
+#### 1. app_config.py
+应用主配置文件，包含以下主要配置：
+- 基础路径配置（日志、上传、模型权重等目录）
+- 服务器配置（主机、端口、调试模式）
+- CORS配置（跨域资源共享）
+- JWT配置（认证相关）
+- 请求配置（超时、文件大小限制）
+- 日志配置（日志级别、格式、轮转）
+- Redis配置（缓存和消息队列）
+- IP访问限制配置
+- 文件上传配置（分片上传、大小限制）
+
+#### 2. celery_config.py
+Celery任务队列配置，包含：
+- Redis连接配置
+- 任务序列化配置
+- 工作进程配置
+- 任务路由和队列配置
+- 任务超时和重试配置
+- 内存管理配置
+
+#### 3. resnet_config.py
+ResNet模型配置，包含：
+- 支持的ResNet版本（18/34/50/101/152）
+- 模型默认参数配置
+- 设备配置（CPU/GPU）
+- 图像预处理参数
+- 模型结构参数
+
+#### 4. yolo_config.py
+YOLO模型配置，包含：
+- 推理设备配置
+- 检测参数（置信度、IoU阈值）
+- 模型推理配置（半精度、NMS等）
+- 最大检测框数量限制
+
+### 环境变量配置
+创建`.env`文件：
+```env
+# 应用配置
+FLASK_APP=app.py
+FLASK_ENV=development
+FLASK_DEBUG=1
+
+# 服务器配置
+HOST=0.0.0.0
+PORT=5000
+WORKERS=4
+SERVER_THREADS=8  # 服务器线程数，不设置则自动计算（CPU核心数 * 2，最大32）
+
+# IP访问限制配置
+ALLOWED_IPS=127.0.0.1,localhost,::1,172.17.0.1  # 允许访问的IP地址列表，用逗号分隔
+
+# Redis配置
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_DB=0
+REDIS_PASSWORD=
+
+# JWT配置
+JWT_SECRET_KEY=your-secret-key
+JWT_ACCESS_TOKEN_EXPIRES=3600
+
+# 文件上传配置
+UPLOAD_FOLDER=uploads
+MAX_CONTENT_LENGTH=16777216  # 16MB
+
+# 日志配置
+LOG_LEVEL=INFO
+LOG_FILE=logs/app.log
+```
+
+### 配置最佳实践
+1. 开发环境配置
+   - 启用调试模式（FLASK_DEBUG=1）
+   - 使用本地Redis
+   - 设置较小的文件上传限制
+   - 使用详细的日志级别
+
+2. 生产环境配置
+   - 禁用调试模式（FLASK_DEBUG=0）
+   - 使用强密码的Redis
+   - 根据服务器资源调整线程数
+   - 使用适当的日志级别
+   - 配置正确的CORS策略
+   - 设置合理的IP访问限制
+
+3. 模型配置建议
+   - 根据硬件资源选择合适的模型版本
+   - 调整推理参数以平衡性能和准确率
+   - 监控内存使用情况
+   - 定期更新模型权重
 
 ## 👨‍💻 开发指南
 
