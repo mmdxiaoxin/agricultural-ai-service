@@ -40,10 +40,8 @@ class Config:
     worker_max_tasks_per_child = 1000  # 处理1000个任务后重启工作进程，防止内存泄漏
     worker_max_memory_per_child = 1024000  # 1GB内存限制
 
-    # 进程池配置 - 根据操作系统选择
-    worker_pool = (
-        "solo" if os.name == "nt" else "prefork"
-    )  # Windows使用solo，Linux使用prefork
+    # 进程池配置
+    worker_pool = "solo"
     worker_pool_restarts = True  # 允许工作进程重启
     worker_pool_restart_interval = 30  # 每30秒检查一次是否需要重启
 

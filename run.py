@@ -1,8 +1,13 @@
 import os
 import multiprocessing
 
-# 设置多进程启动方法为spawn
-multiprocessing.set_start_method("spawn", force=True)
+# 设置多进程启动方法
+if os.name != "nt":  # 如果不是Windows系统（即Linux/Unix系统）
+    import torch.multiprocessing as torch_mp
+
+    torch_mp.set_start_method("spawn", force=True)
+else:
+    multiprocessing.set_start_method("spawn", force=True)
 
 import argparse
 import psutil
@@ -144,7 +149,6 @@ def run_celery_worker(server_config):
     argv = [
         "worker",
         f"--loglevel={AppConfig.LOG_LEVEL}",
-        f"--concurrency={concurrency}",
         "--hostname=worker@%h",
     ]
     celery.worker_main(argv=argv)
