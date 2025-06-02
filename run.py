@@ -106,7 +106,6 @@ def run_web_server(server_config):
             "workers": server_config["threads"],
             "worker_class": "sync",
             "timeout": AppConfig.REQUEST_TIMEOUT,
-            "max_request_size": AppConfig.MAX_FILE_SIZE,
             "accesslog": "-",
             "errorlog": "-",
             "loglevel": "info",
