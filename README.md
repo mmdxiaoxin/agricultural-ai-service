@@ -215,6 +215,106 @@ docker-compose ps
 docker-compose logs -f
 ```
 
+### Dockerfile说明
+
+如果您需要自定义构建Docker镜像，可以使用项目中的Dockerfile。以下是Dockerfile的详细说明：
+
+#### 基础镜像
+```dockerfile
+FROM nvidia/cuda:12.4.0-runtime-ubuntu22.04
+```
+- 使用NVIDIA官方CUDA 12.4.0运行时镜像
+- 基于Ubuntu 22.04系统
+- 包含CUDA运行时环境
+
+#### 环境配置
+```dockerfile
+ENV PYTHONUNBUFFERED=1 \
+    DEBIAN_FRONTEND=noninteractive \
+    TZ=Asia/Shanghai \
+    CUDA_HOME=/usr/local/cuda \
+    PATH=/usr/local/cuda/bin:${PATH} \
+    LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
+```
+- 设置Python输出不缓冲
+- 配置时区为上海
+- 配置CUDA环境变量
+- 设置Python相关环境变量
+
+#### 系统依赖
+```dockerfile
+RUN apt-get update && apt-get install -y \
+    python3.10 \
+    python3-pip \
+    python3.10-venv \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    curl \
+    wget \
+    vim \
+    htop \
+    net-tools \
+    procps
+```
+- 安装Python 3.10
+- 安装系统工具和依赖库
+- 安装开发调试工具
+
+#### Python环境
+```dockerfile
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+```
+- 创建Python虚拟环境
+- 配置pip使用阿里云镜像源
+- 安装项目依赖
+
+#### 验证和检查
+```dockerfile
+RUN python3 -c "import torch; print('CUDA available:', torch.cuda.is_available())" && \
+    python3 -c "import onnxruntime; print('ONNX Runtime version:', onnxruntime.__version__)"
+```
+- 验证CUDA可用性
+- 验证ONNX Runtime安装
+- 检查GPU支持状态
+
+#### 安全配置
+```dockerfile
+RUN chmod -R 755 /app && \
+    chown -R nobody:nogroup /app
+USER nobody
+```
+- 设置适当的文件权限
+- 使用非root用户运行服务
+- 增强容器安全性
+
+#### 健康检查
+```dockerfile
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:5000/health || exit 1
+```
+- 每30秒检查一次服务健康状态
+- 超时时间30秒
+- 启动后5秒开始检查
+- 连续3次失败判定为不健康
+
+#### 构建和运行
+```bash
+# 构建镜像
+docker build -t agricultural-ai-service .
+
+# 运行容器
+docker run -d \
+    --name agricultural-ai-service \
+    --gpus all \
+    -p 5001:5000 \
+    -v $(pwd)/data:/app/data \
+    -v $(pwd)/weight:/app/weight \
+    -v $(pwd)/uploads:/app/uploads \
+    -v $(pwd)/logs:/app/logs \
+    agricultural-ai-service
+```
+
 > ⚠️ **注意**：
 > 1. 虽然Docker会自动创建挂载的目录，但建议在启动前手动创建这些目录，以确保目录结构和权限正确。
 > 2. 特别是`data/matplotlib`和`data/yolo`这样的子目录，需要手动创建。
