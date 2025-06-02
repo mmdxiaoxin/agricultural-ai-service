@@ -2,6 +2,8 @@ import time
 import torch
 import onnxruntime
 import psutil
+import os
+import multiprocessing
 from flask import current_app
 from common.utils.response import ApiResponse
 from common.utils.redis_utils import RedisClient
@@ -56,8 +58,8 @@ def check_celery_status():
         return {"available": False, "error": str(e)}
 
 
-def check_gpu_status():
-    """检查GPU状态"""
+def _check_gpu():
+    """在独立进程中检查GPU状态"""
     try:
         gpu_available = torch.cuda.is_available()
         if gpu_available:
@@ -67,6 +69,33 @@ def check_gpu_status():
                 gpu_memory.append(torch.cuda.get_device_properties(i).total_memory)
             return {"available": True, "count": gpu_count, "memory": gpu_memory}
         return {"available": False}
+    except Exception as e:
+        logger.error(f"GPU状态检查失败: {str(e)}")
+        return {"available": False, "error": str(e)}
+
+
+def check_gpu_status():
+    """检查GPU状态"""
+    try:
+        if os.name == "nt":  # Windows系统直接检查
+            gpu_available = torch.cuda.is_available()
+            if gpu_available:
+                gpu_count = torch.cuda.device_count()
+                gpu_memory = []
+                for i in range(gpu_count):
+                    gpu_memory.append(torch.cuda.get_device_properties(i).total_memory)
+                return {"available": True, "count": gpu_count, "memory": gpu_memory}
+            return {"available": False}
+        else:  # Linux系统使用独立进程
+            # 设置多进程启动方法
+            import torch.multiprocessing as torch_mp
+
+            torch_mp.set_start_method("spawn", force=True)
+            multiprocessing.set_start_method("spawn", force=True)
+
+            with multiprocessing.Pool(1) as pool:
+                result = pool.apply(_check_gpu)
+            return result
     except Exception as e:
         logger.error(f"GPU状态检查失败: {str(e)}")
         return {"available": False, "error": str(e)}
