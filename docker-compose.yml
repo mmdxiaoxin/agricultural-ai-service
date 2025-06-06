@@ -8,10 +8,9 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - ./data:/app/data
-      - ./weight:/app/weight
-      - ./uploads:/app/uploads
       - ./logs:/app/logs
+      - weight_data:/app/weight
+      - app_data:/app/data
     environment:
       - MPLCONFIGDIR=/app/data/matplotlib
       - YOLO_CONFIG_DIR=/app/data/yolo
@@ -29,4 +28,6 @@ services:
               capabilities: [gpu]
 
 volumes:
-  redis_data: 
+  redis_data:
+  weight_data:
+  app_data: 
